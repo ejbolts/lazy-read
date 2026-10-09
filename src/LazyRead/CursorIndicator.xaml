@@ -1,0 +1,11 @@
+<Window x:Class="LazyRead.CursorIndicator" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Lazy Read — Status" Width="260" Height="52" WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent" ShowInTaskbar="False" ShowActivated="False" Topmost="True" FontFamily="Segoe UI">
+  <Border Background="#18232D" BorderBrush="#435748" BorderThickness="1" CornerRadius="12" Padding="13,10">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Ellipse x:Name="Pulse" Width="9" Height="9" Fill="{StaticResource Accent}" HorizontalAlignment="Left" VerticalAlignment="Center">
+        <Ellipse.Triggers><EventTrigger RoutedEvent="Loaded"><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.35" Duration="0:0:0.65" AutoReverse="True" RepeatBehavior="Forever"/></Storyboard></BeginStoryboard></EventTrigger></Ellipse.Triggers>
+      </Ellipse>
+      <TextBlock x:Name="StatusLabel" Grid.Column="1" Text="Generating voice" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      <TextBlock x:Name="TimerLabel" Grid.Column="2" Text="≈ 10s" Foreground="{StaticResource Accent}" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"/>
+    </Grid>
+  </Border>
+</Window>

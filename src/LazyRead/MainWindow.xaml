@@ -1,0 +1,47 @@
+<Window x:Class="LazyRead.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Lazy Read" Width="800" Height="780" MinWidth="700" MinHeight="740" WindowStartupLocation="CenterScreen" Style="{StaticResource {x:Type Window}}" PreviewKeyDown="ShortcutKeyDown">
+  <Grid Margin="30">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal">
+        <Border Background="{StaticResource Accent}" CornerRadius="14" Width="54" Height="54" Margin="0,0,16,0"><TextBlock Text="lr" Foreground="#142C24" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+        <StackPanel><TextBlock Text="Lazy Read" FontSize="30" FontWeight="SemiBold"/><TextBlock Text="A voice for the text you select." Foreground="{StaticResource Muted}" FontSize="14"/></StackPanel>
+      </StackPanel>
+      <Border Grid.Column="1" Background="#213D33" CornerRadius="8" Padding="12,7" VerticalAlignment="Top"><TextBlock Text="LOCAL · QWEN3" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="SemiBold"/></Border>
+    </Grid>
+    <Border Grid.Row="1" Background="{StaticResource Panel}" CornerRadius="12" Padding="20" Margin="0,25,0,18">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel><TextBlock x:Name="StatusText" Text="Starting the local voice engine…" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="DeviceText" Text="Qwen3-TTS · 1.7B CustomVoice" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,7,0,0"/></StackPanel>
+        <Button Grid.Column="1" x:Name="RetryButton" Content="Reset engine" Click="RetryClick" Margin="12,0,0,0" VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
+    <StackPanel Grid.Row="2">
+      <CheckBox x:Name="EnabledBox" Content="Enable the global reading shortcut" Checked="EnableChanged" Unchecked="EnableChanged"/>
+      <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel><TextBlock Text="Read selected text" Foreground="{StaticResource Muted}" FontSize="12"/><TextBlock x:Name="ShortcutLabel" Text="Ctrl+Alt+F8" FontSize="19" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+        <Button Grid.Column="1" x:Name="ShortcutButton" Content="Change shortcut" Click="ChangeShortcutClick" VerticalAlignment="Center"/>
+      </Grid>
+      <TextBlock x:Name="ShortcutHint" Text="Assign this shortcut to your mouse macro. Right-click keeps its usual menu." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,9,0,18"/>
+      <Grid Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <StackPanel><TextBlock Text="Voice" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="VoiceBox" AutomationProperties.Name="Voice" SelectionChanged="OptionsChanged"/></StackPanel>
+        <StackPanel Grid.Column="2"><TextBlock Text="Language" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="LanguageBox" AutomationProperties.Name="Language" SelectionChanged="OptionsChanged"/></StackPanel>
+        <StackPanel Grid.Column="4"><TextBlock Text="Playback speed" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="SpeedBox" AutomationProperties.Name="Playback speed" SelectionChanged="OptionsChanged"/></StackPanel>
+      </Grid>
+    </StackPanel>
+    <Grid Grid.Row="3"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <TextBlock Text="Try a reading" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+      <TextBox Grid.Row="1" x:Name="SampleText" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Text to read" Text="Highlight a passage in Chrome, T3 Code, or your editor. Press your reading shortcut. Lazy Read turns your selected words into a voice, entirely on this computer."/>
+      <Grid Grid.Row="2" Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock x:Name="ReadingText" Text="Ready for your next selection" Foreground="{StaticResource Muted}" VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
+        <Button Grid.Column="1" x:Name="PauseButton" Content="Pause" Click="PauseClick" IsEnabled="False" Margin="0,0,8,0"/>
+        <Button Grid.Column="2" Content="Stop" Click="StopClick" Margin="0,0,8,0"/>
+        <Button Grid.Column="3" Content="Speak" Style="{StaticResource Primary}" Click="SpeakClick"/>
+      </Grid>
+    </Grid>
+    <Grid Grid.Row="4" Margin="0,22,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock Text="Closing this window keeps Lazy Read in the tray." Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Content="Sample document" Padding="12,6" Click="SampleClick" FontSize="12" Margin="0,0,8,0"/>
+      <Button Grid.Column="2" Content="Quit" Padding="12,6" Click="QuitClick" FontSize="12"/>
+    </Grid>
+  </Grid>
+</Window>

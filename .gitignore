@@ -1,0 +1,10 @@
+.venv/
+**/bin/
+**/obj/
+__pycache__/
+*.pyc
+*.log
+artifacts/
+app/
+.vs/
+.DS_Store
