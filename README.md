@@ -6,17 +6,25 @@ A small status badge follows the cursor while speech is generated and disappears
 
 ## Install and run
 
-Windows 10/11 x64, Python **3.10** with its `py` launcher, and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) are required for setup. An NVIDIA GPU with a CUDA-compatible driver is recommended. The initial configuration uses CUDA 12.8 PyTorch and the **Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice** model. CPU inference is available but substantially slower. Keep several GB of disk space available for packages and model files.
+Windows 10/11 x64 and Python **3.10** with its `py` launcher (`winget install Python.Python.3.10`) are required. An NVIDIA GPU with a CUDA-compatible driver is recommended. The initial configuration uses CUDA 12.8 PyTorch and the **Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice** model. CPU inference is available but substantially slower; Setup selects it automatically when no NVIDIA driver is found. Keep several GB of disk space available for packages and model files.
 
-From this folder in PowerShell:
+### From a release (no .NET SDK needed)
+
+Download `LazyRead-win-x64.zip` from the repository's **Releases** page, extract it to a folder you can write to (for example `Documents\LazyRead`), then run in that folder:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup.ps1
 ```
 
-For CPU-only installation, add `-Cpu`. Setup publishes a self-contained desktop executable in `app/` and installs an isolated Python environment in `.venv/`.
+The zip contains the prebuilt self-contained executable; Setup installs the isolated Python environment in `.venv/`. If Windows SmartScreen warns about the unsigned app, choose **More info → Run anyway**. Releases are built by GitHub Actions when a `v*` tag is pushed; build outputs are never committed to the repository.
 
-Keep this project under `C:\Users\Ethan\.t3\projects\lazy read` and double-click **Start Lazy Read.cmd**. The app starts with the model unloaded. Each reading loads Qwen3 into a separate process; the first reading downloads the model from Hugging Face and can take several minutes. Later readings reuse the downloaded files but reload the model into memory. After the last audio finishes, the worker exits automatically, releasing CPU/GPU memory. Cancellation also exits the worker, including during loading.
+### From source
+
+Source setup also requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). Run the same `Setup.ps1` command in the repository folder. It publishes a self-contained desktop executable in `app/` and installs the Python environment. For CPU-only installation on an NVIDIA system, add `-Cpu`.
+
+### Run
+
+Keep `app/`, `engine/`, and `.venv/` together in the same folder and double-click **Start Lazy Read.cmd**. The app starts with the model unloaded. Each reading loads Qwen3 into a separate process; the first reading downloads the model from Hugging Face and can take several minutes. Later readings reuse the downloaded files but reload the model into memory. After the last audio finishes, the worker exits automatically, releasing CPU/GPU memory. Cancellation also exits the worker, including during loading.
 
 1. Highlight text in the application you are using.
 2. Press **Ctrl+Alt+F8**, or use your mouse macro that sends this key combination and releases it.
