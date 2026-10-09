@@ -23,6 +23,7 @@ public sealed class ReaderController : IDisposable
     private readonly MediaPlayer _audio = new();
     private readonly Queue<string> _pending = new();
     private readonly Forms.NotifyIcon _tray;
+    private readonly System.Drawing.Icon _trayIcon;
     private MainWindow? _main;
     private string? _request, _playing;
     private bool _done, _paused, _capturing, _ready, _generating, _unloading;
@@ -42,7 +43,8 @@ public sealed class ReaderController : IDisposable
         menu.Items.Add("Stop reading", null, (_, _) => Stop());
         menu.Items.Add("Enable / disable reading shortcut", null, (_, _) => SetEnabled(!Settings.Enabled));
         menu.Items.Add("Quit", null, (_, _) => Quit());
-        _tray = new Forms.NotifyIcon { Icon = System.Drawing.SystemIcons.Information, Text = "Lazy Read · local Qwen3 voice", Visible = true, ContextMenuStrip = menu };
+        using (var icon = typeof(ReaderController).Assembly.GetManifestResourceStream("LazyRead.ico")!) _trayIcon = new System.Drawing.Icon(icon, Forms.SystemInformation.SmallIconSize);
+        _tray = new Forms.NotifyIcon { Icon = _trayIcon, Text = "Lazy Read · local Qwen3 voice", Visible = true, ContextMenuStrip = menu };
         _tray.DoubleClick += (_, _) => OpenMain();
         if (Settings.Enabled && !_shortcut.TryBind(Settings.Shortcut, out var error))
         { Settings.Enabled = false; ShortcutProblem = error; SetState("Choose another shortcut", error); }
@@ -222,5 +224,5 @@ public sealed class ReaderController : IDisposable
         if (ShortcutProblem != null) _main.ShortcutHint.Text = ShortcutProblem;
     }
     public void Quit() { Exiting = true; Application.Current.Shutdown(); }
-    public void Dispose() { _shortcut.Dispose(); _indicator.Release(); _audio.Close(); _engine?.Dispose(); _tray.Dispose(); }
+    public void Dispose() { _shortcut.Dispose(); _indicator.Release(); _audio.Close(); _engine?.Dispose(); _tray.Dispose(); _trayIcon.Dispose(); }
 }

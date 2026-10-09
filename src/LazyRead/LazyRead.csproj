@@ -8,5 +8,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>LazyRead</AssemblyName>
+    <ApplicationIcon>LazyRead.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="LazyRead.ico" LogicalName="LazyRead.ico" />
+  </ItemGroup>
 </Project>
