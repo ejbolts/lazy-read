@@ -30,9 +30,10 @@ public sealed class ReaderController : IDisposable
     private int _generatingCharacters;
     private readonly Stopwatch _generationClock = new();
     private double _generationPrediction;
-    private string _state = "Ready to read", _device = "Qwen3-TTS · model unloaded", _source = "", _detail = "Highlight text and press Ctrl+Alt+F8.";
+    private string _state = "Ready to read", _device, _source = "", _detail = "Highlight text and press Ctrl+Alt+F8.";
     public ReaderController()
     {
+        _device = DeviceLabel("unloaded");
         _shortcut.Pressed += () => ReadSelection();
         _audio.MediaEnded += (_, _) => { RemoveClip(); PlayNext(); UpdateIndicator(); };
         _audio.MediaFailed += async (_, args) => await UnloadVoice(false, "Playback failed", args.ErrorException.Message);
@@ -79,7 +80,7 @@ public sealed class ReaderController : IDisposable
     private void StartEngine()
     {
         StopPlayback(); _ready = false; _engine?.Dispose();
-        var engine = new SpeechEngine(); _engine = engine;
+        var engine = new SpeechEngine(Settings.Model); _engine = engine;
         engine.Message += message => Application.Current.Dispatcher.BeginInvoke(() => { if (ReferenceEquals(engine, _engine)) HandleMessage(message); });
         SetState("Loading Qwen3-TTS…", "The first launch downloads the model. Later launches use the local cache.");
         try { engine.Start(); } catch (Exception e) { SetState("Engine failed to start", e.Message); }
@@ -114,7 +115,7 @@ public sealed class ReaderController : IDisposable
         if (_unloading) return;
         try { text = ReadingRules.Validate(text); } catch (Exception e) { SetState("Choose some text", e.Message); return; }
         StopPlayback();
-        if (_engine == null) StartEngine();
+        if (_engine == null || _engine.Model != Settings.Model) StartEngine();
         _request = Guid.NewGuid().ToString("N"); _source = source;
         SetState(_ready ? "Generating voice…" : "Waiting for the local voice…", $"{source} · {Settings.Voice} · {text.Length:N0} characters");
         _indicator.SetStatus(_ready ? "Preparing speech" : "Loading voice");
@@ -135,7 +136,7 @@ public sealed class ReaderController : IDisposable
         {
             case "loading": SetState("Loading Qwen3-TTS…", message.GetProperty("message").GetString() ?? ""); break;
             case "ready":
-                _ready = true; _device = message.GetProperty("device").GetString() + " · Qwen3-TTS 1.7B";
+                _ready = true; _device = message.GetProperty("device").GetString() + " · " + ModelChoice.Find(message.GetProperty("model").GetString()).Name;
                 if (_request == null) SetState("Ready to read", "Highlight text and press " + Settings.Shortcut.Label + "."); else Refresh();
                 break;
             case "generating":
@@ -173,6 +174,9 @@ public sealed class ReaderController : IDisposable
         SetState(_paused ? "Paused" : "Reading aloud", _detail); UpdateIndicator();
     }
     public void UpdateSpeed() => _audio.SpeedRatio = Settings.Speed;
+    // A loaded engine keeps its model until it unloads; the new choice applies from the next reading.
+    public void UpdateModel() { if (!_unloading && _engine == null && _request == null) { _device = DeviceLabel("unloaded"); Refresh(); } }
+    private string DeviceLabel(string state) => ModelChoice.Find(Settings.Model).Name + " · model " + state;
     public async void Stop() => await UnloadVoice(true);
     private async void FailReading(string message) => await UnloadVoice(false, "Reading failed", message);
     private async Task UnloadVoice(bool cancelled, string? finalStatus = null, string? finalDetail = null)
@@ -181,13 +185,13 @@ public sealed class ReaderController : IDisposable
         _unloading = true;
         var engine = _engine; _engine = null; _ready = false;
         StopPlayback();
-        _device = "Qwen3-TTS · model unloading";
+        _device = DeviceLabel("unloading");
         SetState(cancelled ? "Cancelling…" : "Unloading voice…", "Releasing the local model from memory.");
         if (cancelled) _indicator.SetStatus("Cancelling…"); else _indicator.Clear();
         try
         {
             if (engine != null) await engine.Unload();
-            _device = "Qwen3-TTS · model unloaded";
+            _device = DeviceLabel("unloaded");
             SetState(finalStatus ?? (cancelled ? "Cancelled · model unloaded" : "Finished reading · model unloaded"),
                 finalDetail ?? (cancelled ? "Highlight text and press " + Settings.Shortcut.Label + " to read again." : $"{_source} · {Settings.Voice}"));
             if (cancelled) _indicator.SetStatus("Cancelled · model unloaded", transient: true);

@@ -31,7 +31,7 @@ Keep `app/`, `engine/`, and `.venv/` together in the same folder and double-clic
 3. Watch the cursor badge as speech is prepared; audio plays automatically and the badge disappears.
 4. Press the same hotkey again to cancel and unload, or use **Pause**, **Resume**, or **Stop** in settings or the tray. After normal playback, the model unloads automatically.
 
-Use **Change shortcut** to record another combination. Ctrl/Alt with a letter or number and function keys (including F13–F24 for macros) are supported. Escape cancels recording. Conflicts with another app are explained without replacing your working shortcut. You can disable the global shortcut with its checkbox. Closing settings keeps the app in the tray; choose **Quit** to unload the model. **Sample document** opens a safe test document in a separate process.
+Use **Model** in settings to choose **Qwen3-TTS 1.7B** (best quality, the default) or the smaller **Qwen3-TTS 0.6B** (faster, lighter). The choice is saved and applies from the next reading; a model's files download on its first use. Use **Change shortcut** to record another combination. Ctrl/Alt with a letter or number and function keys (including F13–F24 for macros) are supported. Escape cancels recording. Conflicts with another app are explained without replacing your working shortcut. You can disable the global shortcut with its checkbox. Closing settings keeps the app in the tray; choose **Quit** to unload the model. **Sample document** opens a safe test document in a separate process.
 
 ## Selection compatibility
 

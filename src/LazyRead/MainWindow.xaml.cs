@@ -17,6 +17,8 @@ public partial class MainWindow : Window
         VoiceBox.ItemsSource = new[] { "Ryan", "Aiden", "Vivian", "Serena", "Uncle_Fu", "Dylan", "Eric", "Ono_Anna", "Sohee" };
         LanguageBox.ItemsSource = new[] { "Auto", "English", "Chinese", "Japanese", "Korean", "German", "French", "Russian", "Portuguese", "Spanish", "Italian" };
         SpeedBox.ItemsSource = new[] { "0.8×", "1.0×", "1.25×", "1.5×" };
+        ModelBox.ItemsSource = Array.ConvertAll(ModelChoice.Options, option => option.Label);
+        ModelBox.SelectedIndex = Array.FindIndex(ModelChoice.Options, option => option.Id == reader.Settings.Model);
         VoiceBox.SelectedItem = reader.Settings.Voice;
         if (VoiceBox.SelectedIndex < 0) VoiceBox.SelectedIndex = 0;
         LanguageBox.SelectedItem = reader.Settings.Language;
@@ -65,7 +67,8 @@ public partial class MainWindow : Window
         _reader.Settings.Voice = (string)VoiceBox.SelectedItem;
         _reader.Settings.Language = (string)LanguageBox.SelectedItem;
         _reader.Settings.Speed = new[] { 0.8, 1.0, 1.25, 1.5 }[SpeedBox.SelectedIndex];
-        _reader.Settings.Save(); _reader.UpdateSpeed();
+        _reader.Settings.Model = ModelChoice.Options[ModelBox.SelectedIndex].Id;
+        _reader.Settings.Save(); _reader.UpdateSpeed(); _reader.UpdateModel();
     }
     private void SpeakClick(object sender, RoutedEventArgs args) => _reader.Speak(SampleText.SelectionLength > 0 ? SampleText.SelectedText : SampleText.Text, "Test reading");
     private void StopClick(object sender, RoutedEventArgs args) => _reader.Stop();

@@ -26,4 +26,14 @@ var estimate = new GenerationEstimate(); var initial = estimate.Predict(100); es
 Assert(estimate.Predict(100) > initial, "timer learns from actual local generation time");
 var learned = estimate.Predict(100); estimate.Observe(100, double.NaN);
 Assert(estimate.Predict(100) == learned, "invalid timing sample does not corrupt the countdown");
+Assert(ModelChoice.DefaultId == "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice" && new ReaderSettings().Model == ModelChoice.DefaultId, "new settings default to the 1.7B model");
+Assert(ModelChoice.Options.Length == 2 && Array.Exists(ModelChoice.Options, o => o.Id == "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice") && Array.Exists(ModelChoice.Options, o => o.Id == ModelChoice.DefaultId), "model list offers the 1.7B and 0.6B CustomVoice models");
+Assert(new ReaderSettings { Model = "Qwen/Unknown" }.Model == ModelChoice.DefaultId, "unknown model setting falls back to 1.7B");
+Assert(System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>("{\"Model\":\"Qwen/Unknown\"}")!.Model == ModelChoice.DefaultId, "unknown saved model falls back to 1.7B");
+Assert(System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>("{\"Voice\":\"Ryan\"}")!.Model == ModelChoice.DefaultId, "settings file without a model keeps working");
+var screen = new System.Drawing.Rectangle(0, 0, 1920, 1040);
+Assert(CursorIndicator.Place(800, 500, 260, 52, screen) == (532, 522), "badge sits below and left of the cursor");
+Assert(CursorIndicator.Place(100, 500, 260, 52, screen) == (122, 522), "badge flips right at the left screen edge");
+Assert(CursorIndicator.Place(800, 1030, 260, 52, screen) == (532, 960), "badge flips above at the bottom screen edge");
+Assert(CursorIndicator.Place(3000, 500, 260, 52, new System.Drawing.Rectangle(2560, 0, 2560, 1440)) == (2732, 522), "badge stays on a secondary monitor");
 Console.WriteLine($"{checks} checks passed.");

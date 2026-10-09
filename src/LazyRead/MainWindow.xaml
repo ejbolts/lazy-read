@@ -22,10 +22,11 @@
         <Button Grid.Column="1" x:Name="ShortcutButton" Content="Change shortcut" Click="ChangeShortcutClick" VerticalAlignment="Center"/>
       </Grid>
       <TextBlock x:Name="ShortcutHint" Text="Assign this shortcut to your mouse macro. Right-click keeps its usual menu." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,9,0,18"/>
-      <Grid Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
         <StackPanel><TextBlock Text="Voice" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="VoiceBox" AutomationProperties.Name="Voice" SelectionChanged="OptionsChanged"/></StackPanel>
         <StackPanel Grid.Column="2"><TextBlock Text="Language" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="LanguageBox" AutomationProperties.Name="Language" SelectionChanged="OptionsChanged"/></StackPanel>
         <StackPanel Grid.Column="4"><TextBlock Text="Playback speed" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="SpeedBox" AutomationProperties.Name="Playback speed" SelectionChanged="OptionsChanged"/></StackPanel>
+        <StackPanel Grid.Column="6"><TextBlock Text="Model" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="ModelBox" AutomationProperties.Name="Model" SelectionChanged="OptionsChanged"/></StackPanel>
       </Grid>
     </StackPanel>
     <Grid Grid.Row="3"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

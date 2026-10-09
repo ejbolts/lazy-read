@@ -3,17 +3,21 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace LazyRead;
 
 public partial class CursorIndicator : Window
 {
-    private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly Stopwatch _elapsed = new();
     private nint _handle;
     private double? _estimate;
     private DateTime? _hideAt;
+    private (int X, int Y) _cursor, _pos;
+    private (int Width, int Height)? _size;
+    private bool _placed;
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] private static extern bool GetWindowRect(nint hwnd, out Rect rect);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
@@ -31,7 +35,7 @@ public partial class CursorIndicator : Window
                 return 0;
             });
         };
-        _tick.Tick += (_, _) => UpdatePosition();
+        _tick.Tick += (_, _) => UpdateLabels();
     }
     public void SetStatus(string label, double? estimate = null, bool transient = false, bool restartTimer = true)
     {
@@ -39,22 +43,40 @@ public partial class CursorIndicator : Window
         if (restartTimer) _elapsed.Restart();
         _hideAt = transient ? DateTime.UtcNow.AddSeconds(2) : null;
         if (!IsVisible) { Show(); UpdateLayout(); }
-        _tick.Start(); UpdatePosition();
+        _placed = false; _size = null;
+        _tick.Start(); UpdateLabels();
+        if (!IsVisible) return;
+        CompositionTarget.Rendering -= Follow; CompositionTarget.Rendering += Follow;
+        Follow(this, EventArgs.Empty);
     }
-    private void UpdatePosition()
+    private void UpdateLabels()
     {
         if (_hideAt <= DateTime.UtcNow) { Clear(); return; }
         TimerLabel.Text = _estimate != null ? GenerationEstimate.Remaining(_estimate.Value, _elapsed.Elapsed.TotalSeconds)
             : _hideAt != null ? "" : _elapsed.Elapsed.ToString(@"mm\:ss");
-        if (_handle == 0 || !Native.GetCursorPos(out var point)) return;
-        var area = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(point.X, point.Y)).WorkingArea;
-        GetWindowRect(_handle, out var rect);
-        var width = rect.Right - rect.Left; var height = rect.Bottom - rect.Top;
-        var x = Math.Clamp(point.X + 22, area.Left, Math.Max(area.Left, area.Right - width));
-        var desiredY = point.Y + 26 + height > area.Bottom ? point.Y - height - 18 : point.Y + 26;
-        var y = Math.Clamp(desiredY, area.Top, Math.Max(area.Top, area.Bottom - height));
-        SetWindowPos(_handle, -1, x, y, 0, 0, 0x11);
     }
-    public void Clear() { _tick.Stop(); _elapsed.Stop(); Hide(); }
-    public void Release() { _tick.Stop(); Close(); }
+    private void Follow(object? sender, EventArgs e)
+    {
+        if (_handle == 0 || !Native.GetCursorPos(out var point)) return;
+        if (_placed && _cursor == (point.X, point.Y)) return;
+        _cursor = (point.X, point.Y);
+        if (_size is null) { GetWindowRect(_handle, out var rect); _size = (rect.Right - rect.Left, rect.Bottom - rect.Top); }
+        var area = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(point.X, point.Y)).WorkingArea;
+        var (x, y) = Place(point.X, point.Y, _size.Value.Width, _size.Value.Height, area);
+        if (_placed && _pos == (x, y)) return;
+        var first = !_placed; _placed = true; _pos = (x, y);
+        SetWindowPos(_handle, -1, x, y, 0, 0, first ? 0x11u : 0x15u);
+    }
+    public static (int X, int Y) Place(int cursorX, int cursorY, int width, int height, System.Drawing.Rectangle area)
+    {
+        var x = cursorX - width - 8;
+        if (x < area.Left) x = cursorX + 22;
+        x = Math.Clamp(x, area.Left, Math.Max(area.Left, area.Right - width));
+        var y = cursorY + 22;
+        if (y + height > area.Bottom) y = cursorY - height - 18;
+        y = Math.Clamp(y, area.Top, Math.Max(area.Top, area.Bottom - height));
+        return (x, y);
+    }
+    public void Clear() { _tick.Stop(); _elapsed.Stop(); CompositionTarget.Rendering -= Follow; Hide(); }
+    public void Release() { _tick.Stop(); CompositionTarget.Rendering -= Follow; Close(); }
 }

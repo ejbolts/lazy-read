@@ -26,10 +26,25 @@ public static class ReadingRules
     }
 }
 
+public sealed record ModelOption(string Id, string Label, string Name);
+
+public static class ModelChoice
+{
+    public const string DefaultId = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice";
+    public static readonly ModelOption[] Options =
+    {
+        new(DefaultId, "Qwen3-TTS 1.7B (best quality)", "Qwen3-TTS 1.7B"),
+        new("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", "Qwen3-TTS 0.6B (faster, lighter)", "Qwen3-TTS 0.6B"),
+    };
+    public static ModelOption Find(string? id) => Array.Find(Options, option => option.Id == id) ?? Options[0];
+}
+
 public sealed class ReaderSettings
 {
+    private string _model = ModelChoice.DefaultId;
     public string Voice { get; set; } = "Ryan";
     public string Language { get; set; } = "English";
+    public string Model { get => ModelChoice.Find(_model).Id; set => _model = value; }
     public double Speed { get; set; } = 1.0;
     public bool Enabled { get; set; } = true;
     public uint ShortcutKey { get; set; } = 0x77;
