@@ -23,7 +23,10 @@ public sealed class ReaderController : IDisposable
     private readonly GenerationEstimate _estimate = new();
     private SpeechEngine? _engine;
     private readonly MediaPlayer _audio = new();
-    private readonly Queue<(string Path, double Seconds)> _pending = new();
+    // Played clips stay until the reading ends so the seek shortcuts can rewind into them.
+    private readonly List<(string Path, double Seconds)> _clips = new();
+    private int _next;
+    private double _startAt;
     private readonly DispatcherTimer _bufferTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private int[] _plan = Array.Empty<int>();
     private int _nextPassage;
@@ -31,7 +34,8 @@ public sealed class ReaderController : IDisposable
     private readonly System.Drawing.Icon _trayIcon;
     private MainWindow? _main;
     private string? _request, _playing;
-    private bool _done, _paused, _capturing, _ready, _generating, _unloading;
+    private bool _done, _paused, _capturing, _ready, _generating, _unloading, _opening;
+    private string? _seekProblem;
     private int _generatingCharacters;
     private readonly Stopwatch _generationClock = new();
     private double _generationPrediction;
@@ -40,10 +44,15 @@ public sealed class ReaderController : IDisposable
     {
         _device = DeviceLabel("unloaded");
         _shortcut.Pressed += () => ReadSelection();
+        _shortcut.Seek += Seek;
         _bufferTimer.Tick += (_, _) => TryStart();
-        _audio.MediaEnded += (_, _) => { RemoveClip(); PlayNext(); UpdateIndicator(); };
+        _audio.MediaEnded += (_, _) => { _playing = null; PlayNext(); UpdateIndicator(); };
         _audio.MediaFailed += async (_, args) => await UnloadVoice(false, "Playback failed", args.ErrorException.Message);
-        _audio.MediaOpened += (_, _) => { if (_playing == null || _request == null) return; _audio.SpeedRatio = Settings.Speed; if (!_paused) _audio.Play(); SetState(_paused ? "Paused" : "Reading aloud", _detail); UpdateIndicator(); };
+        _audio.MediaOpened += (_, _) =>
+        {
+            _opening = false; if (_playing == null || _request == null) return;
+            _audio.SpeedRatio = Settings.Speed; _audio.Position = TimeSpan.FromSeconds(_startAt); _startAt = 0; if (!_paused) _audio.Play(); SetState(_paused ? "Paused" : "Reading aloud", _detail); UpdateIndicator();
+        };
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open Lazy Read", null, (_, _) => OpenMain());
         menu.Items.Add("Pause / resume", null, (_, _) => TogglePause());
@@ -129,6 +138,7 @@ public sealed class ReaderController : IDisposable
         StopPlayback();
         if (_engine == null) StartEngine();
         _request = Guid.NewGuid().ToString("N"); _source = source;
+        _seekProblem = _shortcut.BindSeek() ? null : GlobalHotkey.SeekLabel + " is used by another application, so skipping is unavailable.";
         SetState(_ready ? "Generating voice…" : "Waiting for the local voice…", $"{source} · {Settings.Voice} · {text.Length:N0} characters");
         _indicator.SetStatus(_ready ? "Preparing speech" : "Loading voice");
         try
@@ -155,7 +165,7 @@ public sealed class ReaderController : IDisposable
             case "generating":
                 _generating = true; _nextPassage = message.GetProperty("index").GetInt32(); _generatingCharacters = message.GetProperty("characters").GetInt32();
                 _detail = $"{_source} · {Settings.Voice} · passage {message.GetProperty("index").GetInt32() + 1} of {message.GetProperty("total").GetInt32()}";
-                if (_playing == null && _pending.Count == 0) SetState("Generating voice…", _detail); else Refresh();
+                if (_playing == null && Pending == 0) SetState("Generating voice…", _detail); else Refresh();
                 _generationPrediction = _estimate.Predict(_generatingCharacters); _generationClock.Restart(); UpdateIndicator();
                 break;
             case "audio":
@@ -164,15 +174,15 @@ public sealed class ReaderController : IDisposable
                 _estimate.Observe(_generatingCharacters, message.GetProperty("generation_seconds").GetDouble()); _estimate.ObserveAudio(_generatingCharacters, seconds);
                 var path = message.GetProperty("path").GetString()!;
                 if (!ValidClip(path)) { FailReading("The engine returned an invalid audio file."); break; }
-                _pending.Enqueue((path, seconds)); if (_playing == null) TryStart(); UpdateIndicator(); break;
-            case "done": _generating = false; _done = true; if (_playing == null && _pending.Count == 0) Complete(); else if (_playing == null) TryStart(); else UpdateIndicator(); break;
+                _clips.Add((path, seconds)); if (_playing == null) TryStart(); UpdateIndicator(); break;
+            case "done": _generating = false; _done = true; if (_playing == null && Pending == 0) Complete(); else if (_playing == null) TryStart(); else UpdateIndicator(); break;
             case "error": FailReading(message.GetProperty("message").GetString() ?? "Unknown engine error."); break;
         }
     }
     private bool ValidClip(string path) => _engine != null && Path.GetFullPath(path).StartsWith(Path.GetFullPath(_engine.AudioDirectory) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) && Path.GetExtension(path) == ".wav" && File.Exists(path);
     private void PlayNext()
     {
-        if (_pending.TryDequeue(out var clip)) { _bufferTimer.Stop(); _playing = clip.Path; _audio.Open(new Uri(clip.Path)); }
+        if (Pending > 0) { _bufferTimer.Stop(); _playing = _clips[_next++].Path; _opening = true; _audio.Open(new Uri(_playing)); }
         else if (_done) Complete();
         else { SetState("Buffering for smooth playback…", _detail); _bufferTimer.Start(); }
     }
@@ -180,7 +190,7 @@ public sealed class ReaderController : IDisposable
     private void TryStart()
     {
         if (_playing != null || _request == null) { _bufferTimer.Stop(); return; }
-        if (_pending.Count == 0) { if (_done) Complete(); return; }
+        if (Pending == 0) { if (_done) Complete(); return; }
         if (_done || BufferDelay() <= 0) { PlayNext(); return; }
         _bufferTimer.Start(); SetState("Buffering for smooth playback…", _detail); UpdateIndicator();
     }
@@ -192,12 +202,27 @@ public sealed class ReaderController : IDisposable
             var generate = _generating && i == _nextPassage ? Math.Max(0.5, _generationPrediction - _generationClock.Elapsed.TotalSeconds) : _estimate.Predict(_plan[i]);
             remaining.Add((generate, _estimate.PredictAudio(_plan[i])));
         }
-        return PlaybackBuffer.RequiredDelay(_pending.Sum(clip => clip.Seconds), remaining, Settings.Speed);
+        return PlaybackBuffer.RequiredDelay(_clips.Skip(_next).Sum(clip => clip.Seconds), remaining, Settings.Speed);
+    }
+    private int Pending => _clips.Count - _next;
+    // Skips through everything generated so far; skipping past it waits for the next passage or finishes the reading.
+    private void Seek(double seconds)
+    {
+        if (_request == null || _unloading || _next == 0) return;
+        var current = _playing != null ? _next - 1 : _next;
+        var position = _playing == null ? 0 : _opening ? _startAt : _audio.Position.TotalSeconds;
+        var (clip, offset) = PlaybackSeek.Target(_clips.Select(c => c.Seconds).ToList(), current, position, seconds);
+        _indicator.SetStatus(seconds < 0 ? $"Back {-seconds:0} s" : $"Forward {seconds:0} s", transient: true);
+        if (clip == current && _playing != null)
+        { if (_opening) _startAt = offset; else _audio.Position = TimeSpan.FromSeconds(offset); return; }
+        _audio.Stop(); _playing = null; _opening = false; _next = clip; _startAt = offset;
+        PlayNext(); UpdateIndicator();
     }
     private void UpdateIndicator()
     {
-        if (_playing != null || _request == null) _indicator.Clear();
-        else if (_plan.Length > 0 && (_generating || _pending.Count > 0)) _indicator.SetStatus(_pending.Count > 0 ? "Buffering voice" : "Generating voice", BufferDelay());
+        if (_request == null || (_playing != null && !_indicator.Transient)) _indicator.Clear();
+        else if (_playing != null) return;
+        else if (_plan.Length > 0 && (_generating || Pending > 0)) _indicator.SetStatus(Pending > 0 ? "Buffering voice" : "Generating voice", BufferDelay());
         else if (_generating) _indicator.SetStatus("Generating voice", Math.Max(0, _generationPrediction - _generationClock.Elapsed.TotalSeconds));
         else _indicator.SetStatus("Preparing speech", restartTimer: false);
     }
@@ -240,13 +265,13 @@ public sealed class ReaderController : IDisposable
     {
         var old = _request; var engine = _engine;
         _request = null; _done = false; _paused = false; _generating = false; _plan = Array.Empty<int>(); _nextPassage = 0; _bufferTimer.Stop();
-        _indicator.Clear(); _audio.Stop(); _audio.Close(); RemoveClip();
-        while (_pending.TryDequeue(out var clip)) DeleteClip(clip.Path);
+        _indicator.Clear(); _audio.Stop(); _audio.Close(); _playing = null; _opening = false; _startAt = 0; _shortcut.ReleaseSeek();
+        foreach (var clip in _clips) DeleteClip(clip.Path);
+        _clips.Clear(); _next = 0;
         if (old != null) SetState("Stopped", "Ready for your next selection.");
         if (old != null && engine != null) try { await engine.Send(new { action = "cancel", id = old }); } catch { }
     }
     private async void Complete() => await UnloadVoice(false);
-    private void RemoveClip() { var path = _playing; _playing = null; DeleteClip(path); }
     private void DeleteClip(string? path) { if (path != null && ValidClip(path)) try { File.Delete(path); } catch { } }
     private void SetState(string state, string detail) { _state = state; _detail = detail; Refresh(); }
     private void Refresh()
@@ -257,6 +282,7 @@ public sealed class ReaderController : IDisposable
         _main.PauseButton.IsEnabled = _playing != null; _main.PauseButton.Content = _paused ? "Resume" : "Pause";
         _main.RetryButton.IsEnabled = !_unloading;
         _main.ShortcutLabel.Text = Settings.Shortcut.Label;
+        _main.SeekHint.Text = _seekProblem ?? $"While reading, {GlobalHotkey.SeekLabel} skips back or forward {PlaybackSeek.Step:0} seconds.";
         if (ShortcutProblem != null) _main.ShortcutHint.Text = ShortcutProblem;
     }
     public void Quit() { Exiting = true; Application.Current.Shutdown(); }

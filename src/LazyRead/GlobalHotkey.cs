@@ -23,11 +23,15 @@ public sealed class GlobalHotkey : IDisposable
 {
     private readonly HwndSource _source = new(new HwndSourceParameters("Lazy Read shortcut") { ParentWindow = -3, WindowStyle = 0 });
     private HotkeySpec? _registered;
+    private bool _seekBound;
+    public const string SeekLabel = "Ctrl+Alt+← / →";
     public event Action? Pressed;
+    public event Action<double>? Seek;
     public GlobalHotkey() => _source.AddHook(Handle);
     private nint Handle(nint hwnd, int msg, nint wparam, nint lparam, ref bool handled)
     {
         if (msg == 0x312 && wparam == 1) { handled = true; Pressed?.Invoke(); }
+        else if (msg == 0x312 && (wparam == 2 || wparam == 3)) { handled = true; Seek?.Invoke(wparam == 2 ? -PlaybackSeek.Step : PlaybackSeek.Step); }
         return 0;
     }
     public bool TryBind(HotkeySpec spec, out string error)
@@ -44,5 +48,14 @@ public sealed class GlobalHotkey : IDisposable
         return false;
     }
     public void Suspend() { if (_registered != null) Native.UnregisterHotKey(_source.Handle, 1); _registered = null; }
-    public void Dispose() { Suspend(); _source.Dispose(); }
+    // Ctrl+Alt+Left/Right are only claimed while a reading is active, so other apps keep them otherwise.
+    public bool BindSeek()
+    {
+        if (_seekBound) return true;
+        _seekBound = Native.RegisterHotKey(_source.Handle, 2, 3 | 0x4000, 0x25);
+        if (_seekBound && Native.RegisterHotKey(_source.Handle, 3, 3 | 0x4000, 0x27)) return true;
+        ReleaseSeek(); return false;
+    }
+    public void ReleaseSeek() { if (_seekBound) { Native.UnregisterHotKey(_source.Handle, 2); Native.UnregisterHotKey(_source.Handle, 3); } _seekBound = false; }
+    public void Dispose() { Suspend(); ReleaseSeek(); _source.Dispose(); }
 }

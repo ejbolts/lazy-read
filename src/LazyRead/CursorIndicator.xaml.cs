@@ -77,6 +77,7 @@ public partial class CursorIndicator : Window
         y = Math.Clamp(y, area.Top, Math.Max(area.Top, area.Bottom - height));
         return (x, y);
     }
+    public bool Transient => IsVisible && _hideAt > DateTime.UtcNow;
     public void Clear() { _tick.Stop(); _elapsed.Stop(); CompositionTarget.Rendering -= Follow; Hide(); }
     public void Release() { _tick.Stop(); CompositionTarget.Rendering -= Follow; Close(); }
 }
