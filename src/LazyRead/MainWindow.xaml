@@ -21,7 +21,8 @@
         <StackPanel><TextBlock Text="Read selected text" Foreground="{StaticResource Muted}" FontSize="12"/><TextBlock x:Name="ShortcutLabel" Text="Ctrl+Alt+F8" FontSize="19" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
         <Button Grid.Column="1" x:Name="ShortcutButton" Content="Change shortcut" Click="ChangeShortcutClick" VerticalAlignment="Center"/>
       </Grid>
-      <TextBlock x:Name="ShortcutHint" Text="Assign this shortcut to your mouse macro. Right-click keeps its usual menu." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,9,0,18"/>
+      <TextBlock x:Name="ShortcutHint" Text="Assign this shortcut to your mouse macro. Right-click keeps its usual menu." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,9,0,0"/>
+      <TextBlock x:Name="SeekHint" Text="While reading, Ctrl+Alt+← / → skips back or forward 5 seconds." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,18"/>
       <Grid Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
         <StackPanel><TextBlock Text="Voice" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="VoiceBox" AutomationProperties.Name="Voice" SelectionChanged="OptionsChanged"/></StackPanel>
         <StackPanel Grid.Column="2"><TextBlock Text="Playback speed" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,7"/><ComboBox x:Name="SpeedBox" AutomationProperties.Name="Playback speed" SelectionChanged="OptionsChanged"/></StackPanel>

@@ -2,7 +2,7 @@
 
 A Windows tray app that reads highlighted text with **Kokoro v1.0 running locally**. Highlight text and press **Ctrl+Alt+F8**, or assign that shortcut to a mouse macro. No Chrome extension or browser speech API is involved. Right-click always keeps the application's own menu.
 
-A small status badge follows the cursor while speech is generated and disappears during playback. It never takes focus or intercepts clicks. Its **≈ seconds** countdown is an estimate learned from actual generation times; if the estimate expires it says **Finishing…** until audio is ready. Model loading uses an elapsed timer because download/startup duration is unknown. Press the reading shortcut again during loading, generation, or playback to cancel and unload the model. The badge shows **Cancelling…**, then confirms **Cancelled · model unloaded** after the worker exits. Playback also has pause, resume, stop, and speed controls in settings and the tray.
+A small status badge follows the cursor while speech is generated and disappears during playback. It never takes focus or intercepts clicks. Its **≈ seconds** countdown is an estimate learned from actual generation times; if the estimate expires it says **Finishing…** until audio is ready. Model loading uses an elapsed timer because download/startup duration is unknown. Press the reading shortcut again during loading, generation, or playback to cancel and unload the model. The badge shows **Cancelling…**, then confirms **Cancelled · model unloaded** after the worker exits. Playback also has pause, resume, stop, and speed controls in settings and the tray. While a reading is active, **Ctrl+Alt+←** and **Ctrl+Alt+→** skip back or forward 5 seconds, across passages, and a short badge confirms each skip. Skipping past the generated audio waits for the next passage, or finishes the reading once everything is generated. Lazy Read only claims these keys during a reading, so other apps keep them otherwise.
 
 ## Install and run
 
@@ -47,7 +47,7 @@ Code is sent as the literal selected text. Kokoro may pronounce punctuation and 
 
 Selected text travels over a private parent/child process pipe to the local Python worker. There is no HTTP service or cloud inference. Package and model downloads require network access initially. Cached inference also works with the network disabled.
 
-Settings and engine diagnostics live in `%LOCALAPPDATA%\LazyRead`. Selected text is not logged or saved. Temporary WAV files are deleted after playback or when that app instance exits. Kokoro's model files live in `%LOCALAPPDATA%\LazyRead\models`. The model and dependencies retain their own licenses; the app code is MIT licensed. See [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) and [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) for model details.
+Settings and engine diagnostics live in `%LOCALAPPDATA%\LazyRead`. Selected text is not logged or saved. Temporary WAV files are kept only until the reading ends, so you can skip back, and are deleted then or when that app instance exits. Kokoro's model files live in `%LOCALAPPDATA%\LazyRead\models`. The model and dependencies retain their own licenses; the app code is MIT licensed. See [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) and [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) for model details.
 
 ## Development and verification
 

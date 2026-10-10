@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -23,6 +24,22 @@ public static class ReadingRules
     {
         if (password || !explicitRequest || surface.Contains("terminal", StringComparison.OrdinalIgnoreCase) || surface.Contains("console", StringComparison.OrdinalIgnoreCase)) return false;
         return new[] { "chrome", "msedge", "firefox", "t3-code", "t3 code", "t3 code (alpha)", "t3code", "code", "notepad", "winword", "acrobat", "acrord32" }.Contains(process.ToLowerInvariant());
+    }
+}
+
+public static class PlaybackSeek
+{
+    public const double Step = 5;
+    // Treats the reading's clips as one timeline. A clip index equal to the clip count means past the generated audio.
+    public static (int Clip, double Offset) Target(IReadOnlyList<double> clips, int clip, double offset, double delta)
+    {
+        var target = Math.Max(0, clips.Take(clip).Sum() + offset + delta);
+        for (var i = 0; i < clips.Count; i++)
+        {
+            if (target < clips[i]) return (i, target);
+            target -= clips[i];
+        }
+        return (clips.Count, 0);
     }
 }
 
