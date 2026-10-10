@@ -35,7 +35,7 @@ public sealed class ReaderController : IDisposable
     private MainWindow? _main;
     private string? _request, _playing;
     private bool _done, _paused, _capturing, _ready, _generating, _unloading, _opening;
-    private string? _seekProblem;
+    private string? _keyProblem;
     private int _generatingCharacters;
     private readonly Stopwatch _generationClock = new();
     private double _generationPrediction;
@@ -45,6 +45,7 @@ public sealed class ReaderController : IDisposable
         _device = DeviceLabel("unloaded");
         _shortcut.Pressed += () => ReadSelection();
         _shortcut.Seek += Seek;
+        _shortcut.Cancel += Stop;
         _bufferTimer.Tick += (_, _) => TryStart();
         _audio.MediaEnded += (_, _) => { _playing = null; PlayNext(); UpdateIndicator(); };
         _audio.MediaFailed += async (_, args) => await UnloadVoice(false, "Playback failed", args.ErrorException.Message);
@@ -109,7 +110,7 @@ public sealed class ReaderController : IDisposable
     private async void ReadSelection()
     {
         if (_unloading) return;
-        if (_request != null) { await UnloadVoice(true); return; }
+        if (_request != null) { TogglePause(); return; }
         if (_capturing) return;
         _capturing = true;
         var source = Native.GetForegroundWindow(); Native.GetCursorPos(out var point);
@@ -138,7 +139,10 @@ public sealed class ReaderController : IDisposable
         StopPlayback();
         if (_engine == null) StartEngine();
         _request = Guid.NewGuid().ToString("N"); _source = source;
-        _seekProblem = _shortcut.BindSeek() ? null : GlobalHotkey.SeekLabel + " is used by another application, so skipping is unavailable.";
+        _keyProblem = string.Join(" ", new[] {
+            _shortcut.BindSeek() ? null : GlobalHotkey.SeekLabel + " is used by another application, so skipping is unavailable.",
+            _shortcut.BindCancel() ? null : GlobalHotkey.CancelLabel + " is used by another application, so cancel with Stop instead." }.OfType<string>());
+        if (_keyProblem == "") _keyProblem = null;
         SetState(_ready ? "Generating voice…" : "Waiting for the local voice…", $"{source} · {Settings.Voice} · {text.Length:N0} characters");
         _indicator.SetStatus(_ready ? "Preparing speech" : "Loading voice");
         try
@@ -222,15 +226,20 @@ public sealed class ReaderController : IDisposable
     {
         if (_request == null || (_playing != null && !_indicator.Transient)) _indicator.Clear();
         else if (_playing != null) return;
-        else if (_plan.Length > 0 && (_generating || Pending > 0)) _indicator.SetStatus(Pending > 0 ? "Buffering voice" : "Generating voice", BufferDelay());
-        else if (_generating) _indicator.SetStatus("Generating voice", Math.Max(0, _generationPrediction - _generationClock.Elapsed.TotalSeconds));
-        else _indicator.SetStatus("Preparing speech", restartTimer: false);
+        else if (_plan.Length > 0 && (_generating || Pending > 0)) _indicator.SetStatus(PausedLabel(Pending > 0 ? "Buffering voice" : "Generating voice"), BufferDelay());
+        else if (_generating) _indicator.SetStatus(PausedLabel("Generating voice"), Math.Max(0, _generationPrediction - _generationClock.Elapsed.TotalSeconds));
+        else _indicator.SetStatus(PausedLabel("Preparing speech"), restartTimer: false);
     }
+    private string PausedLabel(string label) => _paused ? "Paused · " + char.ToLowerInvariant(label[0]) + label[1..] : label;
+    // Pausing before any audio plays lets generation continue; the first passage then opens paused.
     public void TogglePause()
     {
-        if (_playing == null) return;
-        _paused = !_paused; if (_paused) _audio.Pause(); else _audio.Play();
-        SetState(_paused ? "Paused" : "Reading aloud", _detail); UpdateIndicator();
+        if (_request == null || _unloading) return;
+        _paused = !_paused;
+        if (_playing != null && !_opening) { if (_paused) _audio.Pause(); else _audio.Play(); }
+        if (_playing == null) { Refresh(); UpdateIndicator(); return; }
+        SetState(_paused ? "Paused" : "Reading aloud", _detail);
+        _indicator.SetStatus(_paused ? "Paused" : "Resumed", transient: true);
     }
     public void UpdateSpeed() => _audio.SpeedRatio = Settings.Speed;
     private static string DeviceLabel(string state) => VoiceChoice.Engine + " · model " + state;
@@ -265,7 +274,7 @@ public sealed class ReaderController : IDisposable
     {
         var old = _request; var engine = _engine;
         _request = null; _done = false; _paused = false; _generating = false; _plan = Array.Empty<int>(); _nextPassage = 0; _bufferTimer.Stop();
-        _indicator.Clear(); _audio.Stop(); _audio.Close(); _playing = null; _opening = false; _startAt = 0; _shortcut.ReleaseSeek();
+        _indicator.Clear(); _audio.Stop(); _audio.Close(); _playing = null; _opening = false; _startAt = 0; _shortcut.ReleaseSeek(); _shortcut.ReleaseCancel();
         foreach (var clip in _clips) DeleteClip(clip.Path);
         _clips.Clear(); _next = 0;
         if (old != null) SetState("Stopped", "Ready for your next selection.");
@@ -279,10 +288,10 @@ public sealed class ReaderController : IDisposable
         if (_main == null) return;
         _main.StatusText.Text = _state; _main.DeviceText.Text = _device;
         _main.ReadingText.Text = _detail; _main.ReadingText.ToolTip = _detail;
-        _main.PauseButton.IsEnabled = _playing != null; _main.PauseButton.Content = _paused ? "Resume" : "Pause";
+        _main.PauseButton.IsEnabled = _request != null && !_unloading; _main.PauseButton.Content = _paused ? "Resume" : "Pause";
         _main.RetryButton.IsEnabled = !_unloading;
         _main.ShortcutLabel.Text = Settings.Shortcut.Label;
-        _main.SeekHint.Text = _seekProblem ?? $"While reading, {GlobalHotkey.SeekLabel} skips back or forward {PlaybackSeek.Step:0} seconds.";
+        _main.SeekHint.Text = _keyProblem ?? $"While reading, press {Settings.Shortcut.Label} again to pause or resume, {GlobalHotkey.SeekLabel} to skip back or forward {PlaybackSeek.Step:0} seconds, and {GlobalHotkey.CancelLabel} to cancel.";
         if (ShortcutProblem != null) _main.ShortcutHint.Text = ShortcutProblem;
     }
     public void Quit() { Exiting = true; Application.Current.Shutdown(); }
