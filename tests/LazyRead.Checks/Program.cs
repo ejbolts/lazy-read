@@ -27,7 +27,14 @@ Assert(estimate.Predict(100) > initial, "timer learns from actual local generati
 var learned = estimate.Predict(100); estimate.Observe(100, double.NaN);
 Assert(estimate.Predict(100) == learned, "invalid timing sample does not corrupt the countdown");
 Assert(ModelChoice.DefaultId == "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice" && new ReaderSettings().Model == ModelChoice.DefaultId, "new settings default to the 1.7B model");
-Assert(ModelChoice.Options.Length == 2 && Array.Exists(ModelChoice.Options, o => o.Id == "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice") && Array.Exists(ModelChoice.Options, o => o.Id == ModelChoice.DefaultId), "model list offers the 1.7B and 0.6B CustomVoice models");
+Assert(Array.Exists(ModelChoice.Options, o => o.Id == "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice") && Array.Exists(ModelChoice.Options, o => o.Id == ModelChoice.DefaultId), "model list offers the 1.7B and 0.6B CustomVoice models");
+Assert(ModelChoice.Find(ModelChoice.KokoroId).Name == "Kokoro v1.0" && ModelChoice.Find(ModelChoice.PocketId).Name == "Pocket TTS", "Kokoro and Pocket TTS are selectable for testing");
+Assert(ModelChoice.PickVoice(ModelChoice.Find(ModelChoice.KokoroId), "Ryan") == "af_heart" && ModelChoice.PickVoice(ModelChoice.Find(ModelChoice.PocketId), "Ryan") == "alba", "a Qwen voice is never sent to another model");
+Assert(ModelChoice.PickVoice(ModelChoice.Find(ModelChoice.DefaultId), "Serena") == "Serena" && ModelChoice.PickLanguage(ModelChoice.Find(ModelChoice.DefaultId), "Auto") == "Auto", "Qwen keeps its saved voice and language");
+Assert(ModelChoice.PickLanguage(ModelChoice.Find(ModelChoice.PocketId), "Japanese") == "English", "English-only models fall back to English");
+var remembered = System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>(System.Text.Json.JsonSerializer.Serialize(new ReaderSettings { Voice = "alba", ModelVoices = { [ModelChoice.DefaultId] = "Sohee", [ModelChoice.PocketId] = "alba" } }))!;
+Assert(remembered.VoiceFor(ModelChoice.Find(ModelChoice.DefaultId)) == "Sohee" && remembered.VoiceFor(ModelChoice.Find(ModelChoice.KokoroId)) == "af_heart", "each model keeps its own saved voice");
+Assert(new ReaderSettings { Voice = "Sohee" }.VoiceFor(ModelChoice.Find(ModelChoice.DefaultId)) == "Sohee", "existing settings keep their Qwen voice");
 Assert(new ReaderSettings { Model = "Qwen/Unknown" }.Model == ModelChoice.DefaultId, "unknown model setting falls back to 1.7B");
 Assert(System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>("{\"Model\":\"Qwen/Unknown\"}")!.Model == ModelChoice.DefaultId, "unknown saved model falls back to 1.7B");
 Assert(System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>("{\"Voice\":\"Ryan\"}")!.Model == ModelChoice.DefaultId, "settings file without a model keeps working");

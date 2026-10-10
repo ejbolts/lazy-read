@@ -31,7 +31,7 @@ Keep `app/`, `engine/`, and `.venv/` together in the same folder and double-clic
 3. Watch the cursor badge as speech is prepared; audio plays automatically and the badge disappears.
 4. Press the same hotkey again to cancel and unload, or use **Pause**, **Resume**, or **Stop** in settings or the tray. After normal playback, the model unloads automatically.
 
-Use **Model** in settings to choose **Qwen3-TTS 1.7B** (best quality, the default) or the smaller **Qwen3-TTS 0.6B** (faster, lighter). The choice is saved and applies from the next reading; a model's files download on its first use. Use **Change shortcut** to record another combination. Ctrl/Alt with a letter or number and function keys (including F13–F24 for macros) are supported. Escape cancels recording. Conflicts with another app are explained without replacing your working shortcut. You can disable the global shortcut with its checkbox. Closing settings keeps the app in the tray; choose **Quit** to unload the model. **Sample document** opens a safe test document in a separate process.
+Use **Model** in settings to choose **Qwen3-TTS 1.7B** (best quality, the default) or the smaller **Qwen3-TTS 0.6B** (faster, lighter). Two lighter CPU models are included for testing: **Kokoro v1.0** (via kokoro-onnx; its files download once from the kokoro-onnx GitHub release and are checked against pinned hashes) and **Kyutai Pocket TTS** (English model, from Hugging Face). Both are English-only here and each has its own voice list. Lazy Read remembers the voice you last used for each model. The choice is saved and applies from the next reading; a model's files download on its first use. Use **Change shortcut** to record another combination. Ctrl/Alt with a letter or number and function keys (including F13–F24 for macros) are supported. Escape cancels recording. Conflicts with another app are explained without replacing your working shortcut. You can disable the global shortcut with its checkbox. Closing settings keeps the app in the tray; choose **Quit** to unload the model. **Sample document** opens a safe test document in a separate process.
 
 ## Selection compatibility
 
@@ -45,7 +45,7 @@ Code is sent as the literal selected text. Qwen may pronounce punctuation and id
 
 Selected text travels over a private parent/child process pipe to the local Python worker. There is no HTTP service or cloud inference. Package and model downloads require network access initially. Cached inference also works with the network disabled.
 
-Settings and engine diagnostics live in `%LOCALAPPDATA%\LazyRead`. Selected text is not logged or saved. Temporary WAV files are deleted after playback or when that app instance exits. Model weights use Hugging Face's normal cache. The model and dependencies retain their own licenses; the app code is MIT licensed. See the [official Qwen3-TTS repository](https://github.com/QwenLM/Qwen3-TTS) for model details.
+Settings and engine diagnostics live in `%LOCALAPPDATA%\LazyRead`. Selected text is not logged or saved. Temporary WAV files are deleted after playback or when that app instance exits. Qwen and Pocket TTS weights use Hugging Face's normal cache; Kokoro's files live in `%LOCALAPPDATA%\LazyRead\models`. The model and dependencies retain their own licenses; the app code is MIT licensed. See the [official Qwen3-TTS repository](https://github.com/QwenLM/Qwen3-TTS) for model details.
 
 ## Development and verification
 
@@ -57,6 +57,8 @@ dotnet run --project tests/LazyRead.Checks -c Release
 .\.venv\Scripts\python.exe engine/verify_local.py --offline
 ```
 
-The last two commands are opt-in integration checks using the real model and synthetic text, including cancellation, replacement, Unicode, and cached offline inference. Evidence is saved under ignored `artifacts/`. Launch `LazyRead.exe --sample` in a separate process for a sample document with prose and code for safe native selection testing.
+`tools/load_benchmark.py` times how long each model takes to load into memory in a fresh worker, as happens for every reading. Example: `.\.venv\Scripts\python.exe tools/load_benchmark.py 5 kokoro pocket qwen-0.6b`.
+
+The last two `verify_local.py` commands are opt-in integration checks using the real model and synthetic text, including cancellation, replacement, Unicode, and cached offline inference. Evidence is saved under ignored `artifacts/`. Launch `LazyRead.exe --sample` in a separate process for a sample document with prose and code for safe native selection testing.
 
 If loading fails, inspect `%LOCALAPPDATA%\LazyRead\engine.log`, click **Reset engine**, then try reading again. Use the CUDA install on NVIDIA systems and `Setup.ps1 -Cpu` on CPU-only systems. FlashAttention and SoX executables are not required by this app's synthesis path.

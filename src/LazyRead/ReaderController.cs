@@ -20,8 +20,9 @@ public sealed class ReaderController : IDisposable
     private readonly GlobalHotkey _shortcut = new();
     private readonly SelectionReader _selection = new();
     private readonly CursorIndicator _indicator = new();
-    private readonly GenerationEstimate _estimate = new();
+    private GenerationEstimate _estimate = new();
     private SpeechEngine? _engine;
+    private string? _estimateModel;
     private readonly MediaPlayer _audio = new();
     private readonly Queue<(string Path, double Seconds)> _pending = new();
     private readonly DispatcherTimer _bufferTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
@@ -51,7 +52,7 @@ public sealed class ReaderController : IDisposable
         menu.Items.Add("Enable / disable reading shortcut", null, (_, _) => SetEnabled(!Settings.Enabled));
         menu.Items.Add("Quit", null, (_, _) => Quit());
         using (var icon = typeof(ReaderController).Assembly.GetManifestResourceStream("LazyRead.ico")!) _trayIcon = new System.Drawing.Icon(icon, Forms.SystemInformation.SmallIconSize);
-        _tray = new Forms.NotifyIcon { Icon = _trayIcon, Text = "Lazy Read · local Qwen3 voice", Visible = true, ContextMenuStrip = menu };
+        _tray = new Forms.NotifyIcon { Icon = _trayIcon, Text = "Lazy Read · local voice", Visible = true, ContextMenuStrip = menu };
         _tray.DoubleClick += (_, _) => OpenMain();
         if (Settings.Enabled && !_shortcut.TryBind(Settings.Shortcut, out var error))
         { Settings.Enabled = false; ShortcutProblem = error; SetState("Choose another shortcut", error); }
@@ -86,9 +87,11 @@ public sealed class ReaderController : IDisposable
     private void StartEngine()
     {
         StopPlayback(); _ready = false; _engine?.Dispose();
+        // Generation speed learned for one model does not describe another.
+        if (Settings.Model != _estimateModel) { _estimate = new(); _estimateModel = Settings.Model; }
         var engine = new SpeechEngine(Settings.Model); _engine = engine;
         engine.Message += message => Application.Current.Dispatcher.BeginInvoke(() => { if (ReferenceEquals(engine, _engine)) HandleMessage(message); });
-        SetState("Loading Qwen3-TTS…", "The first launch downloads the model. Later launches use the local cache.");
+        SetState($"Loading {ModelChoice.Find(engine.Model).Name}…", "The first launch downloads the model. Later launches use the local cache.");
         try { engine.Start(); } catch (Exception e) { SetState("Engine failed to start", e.Message); }
     }
     private async void ReadSelection()
@@ -128,7 +131,8 @@ public sealed class ReaderController : IDisposable
         try
         {
             if (_engine == null) throw new InvalidOperationException("Open settings and start the local engine first.");
-            await _engine.Send(new { action = "speak", id = _request, text, voice = Settings.Voice, language = Settings.Language });
+            var model = ModelChoice.Find(_engine.Model);
+            await _engine.Send(new { action = "speak", id = _request, text, voice = Settings.VoiceFor(model), language = ModelChoice.PickLanguage(model, Settings.Language) });
         }
         catch (Exception e) { await UnloadVoice(false, "Reading failed", e.Message); }
     }
@@ -140,7 +144,7 @@ public sealed class ReaderController : IDisposable
         { if (type == "audio" && message.TryGetProperty("path", out var stale)) DeleteClip(stale.GetString()); return; }
         switch (type)
         {
-            case "loading": SetState("Loading Qwen3-TTS…", message.GetProperty("message").GetString() ?? ""); break;
+            case "loading": SetState($"Loading {ModelChoice.Find(_engine?.Model).Name}…", message.GetProperty("message").GetString() ?? ""); break;
             case "ready":
                 _ready = true; _device = message.GetProperty("device").GetString() + " · " + ModelChoice.Find(message.GetProperty("model").GetString()).Name;
                 if (_request == null) SetState("Ready to read", "Highlight text and press " + Settings.Shortcut.Label + "."); else Refresh();

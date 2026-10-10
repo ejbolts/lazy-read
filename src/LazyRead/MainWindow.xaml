@@ -7,11 +7,11 @@
         <Border Background="{StaticResource Accent}" CornerRadius="14" Width="54" Height="54" Margin="0,0,16,0"><Viewbox><Canvas Width="100" Height="100"><!-- Same mark as LazyRead.ico (tools/make_icon.py). --><Path Fill="#142C24" Data="M47.5,65 L19,60 L19,77 L47.5,82 Z M52.5,65 L81,60 L81,77 L52.5,82 Z"/><Path Stroke="#142C24" StrokeThickness="6.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M41.69,48.69 A11.75,11.75 0 0 1 58.31,48.69 M31.79,38.79 A25.75,25.75 0 0 1 68.21,38.79"/></Canvas></Viewbox></Border>
         <StackPanel><TextBlock Text="Lazy Read" FontSize="30" FontWeight="SemiBold"/><TextBlock Text="A voice for the text you select." Foreground="{StaticResource Muted}" FontSize="14"/></StackPanel>
       </StackPanel>
-      <Border Grid.Column="1" Background="#213D33" CornerRadius="8" Padding="12,7" VerticalAlignment="Top"><TextBlock Text="LOCAL · QWEN3" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="SemiBold"/></Border>
+      <Border Grid.Column="1" Background="#213D33" CornerRadius="8" Padding="12,7" VerticalAlignment="Top"><TextBlock Text="LOCAL · OFFLINE" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="SemiBold"/></Border>
     </Grid>
     <Border Grid.Row="1" Background="{StaticResource Panel}" CornerRadius="12" Padding="20" Margin="0,25,0,18">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel><TextBlock x:Name="StatusText" Text="Starting the local voice engine…" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="DeviceText" Text="Qwen3-TTS · 1.7B CustomVoice" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,7,0,0"/></StackPanel>
+        <StackPanel><TextBlock x:Name="StatusText" Text="Starting the local voice engine…" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="DeviceText" Text="" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,7,0,0"/></StackPanel>
         <Button Grid.Column="1" x:Name="RetryButton" Content="Reset engine" Click="RetryClick" Margin="12,0,0,0" VerticalAlignment="Center"/>
       </Grid>
     </Border>
