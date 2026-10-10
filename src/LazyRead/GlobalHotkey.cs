@@ -23,15 +23,18 @@ public sealed class GlobalHotkey : IDisposable
 {
     private readonly HwndSource _source = new(new HwndSourceParameters("Lazy Read shortcut") { ParentWindow = -3, WindowStyle = 0 });
     private HotkeySpec? _registered;
-    private bool _seekBound;
+    private bool _seekBound, _cancelBound;
     public const string SeekLabel = "Ctrl+Alt+← / →";
+    public const string CancelLabel = "Ctrl+Alt+Esc";
     public event Action? Pressed;
     public event Action<double>? Seek;
+    public event Action? Cancel;
     public GlobalHotkey() => _source.AddHook(Handle);
     private nint Handle(nint hwnd, int msg, nint wparam, nint lparam, ref bool handled)
     {
         if (msg == 0x312 && wparam == 1) { handled = true; Pressed?.Invoke(); }
         else if (msg == 0x312 && (wparam == 2 || wparam == 3)) { handled = true; Seek?.Invoke(wparam == 2 ? -PlaybackSeek.Step : PlaybackSeek.Step); }
+        else if (msg == 0x312 && wparam == 4) { handled = true; Cancel?.Invoke(); }
         return 0;
     }
     public bool TryBind(HotkeySpec spec, out string error)
@@ -48,7 +51,7 @@ public sealed class GlobalHotkey : IDisposable
         return false;
     }
     public void Suspend() { if (_registered != null) Native.UnregisterHotKey(_source.Handle, 1); _registered = null; }
-    // Ctrl+Alt+Left/Right are only claimed while a reading is active, so other apps keep them otherwise.
+    // Ctrl+Alt+Left/Right and Ctrl+Alt+Esc are only claimed while a reading is active, so other apps keep them otherwise.
     public bool BindSeek()
     {
         if (_seekBound) return true;
@@ -57,5 +60,7 @@ public sealed class GlobalHotkey : IDisposable
         ReleaseSeek(); return false;
     }
     public void ReleaseSeek() { if (_seekBound) { Native.UnregisterHotKey(_source.Handle, 2); Native.UnregisterHotKey(_source.Handle, 3); } _seekBound = false; }
-    public void Dispose() { Suspend(); ReleaseSeek(); _source.Dispose(); }
+    public bool BindCancel() => _cancelBound = _cancelBound || Native.RegisterHotKey(_source.Handle, 4, 3 | 0x4000, 0x1B);
+    public void ReleaseCancel() { if (_cancelBound) Native.UnregisterHotKey(_source.Handle, 4); _cancelBound = false; }
+    public void Dispose() { Suspend(); ReleaseSeek(); ReleaseCancel(); _source.Dispose(); }
 }
