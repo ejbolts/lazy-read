@@ -8,4 +8,4 @@ Standalone Windows WPF application with an isolated Python Kokoro (kokoro-onnx) 
 - Preserve clipboard formats and newer clipboard changes during fallback capture. Never issue copy shortcuts to terminal/password controls.
 - UI evidence goes in ignored `artifacts/visual-review/initial-app/`. Native Windows interaction requires native verification; a browser mockup is insufficient.
 - Keep inference local. Network access is limited to first-time package/model downloads.
-- Push the task branch after the shared verification gates pass. This new project does not require a PR.
+- Push the task branch after the shared verification gates pass.
