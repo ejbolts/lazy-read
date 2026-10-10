@@ -56,7 +56,13 @@ public sealed class ReaderController : IDisposable
         if (Settings.Enabled && !_shortcut.TryBind(Settings.Shortcut, out var error))
         { Settings.Enabled = false; ShortcutProblem = error; SetState("Choose another shortcut", error); }
     }
-    public void OpenMain() { _main ??= new MainWindow(this); _main.Show(); _main.Activate(); Refresh(); }
+    public void OpenMain()
+    {
+        _main ??= new MainWindow(this);
+        // Show and Activate leave a minimized window minimized, so a taskbar click must restore it.
+        if (_main.WindowState == WindowState.Minimized) _main.WindowState = WindowState.Normal;
+        _main.Show(); _main.Activate(); Refresh();
+    }
     public void SetEnabled(bool enabled)
     {
         if (enabled && !_shortcut.TryBind(Settings.Shortcut, out var error))
