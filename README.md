@@ -24,6 +24,8 @@ Source setup also requires the [.NET 8 SDK](https://dotnet.microsoft.com/downloa
 
 ### Run
 
+To start Lazy Read at sign-in without a window, add `app\LazyRead.exe --background` to your startup entries (for example `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`). It stays in the tray; open the window from the tray icon.
+
 Keep `app/`, `engine/`, and `.venv/` together in the same folder and double-click **Start Lazy Read.cmd**. The app starts with the model unloaded. Each reading loads Kokoro into a separate process, which takes about a second. The first reading downloads the model files from the kokoro-onnx GitHub release and checks them against pinned SHA-256 hashes. Later readings reuse the downloaded files. After the last audio finishes, the worker exits automatically, releasing its memory. Cancellation also exits the worker, including during loading.
 
 1. Highlight text in the application you are using.

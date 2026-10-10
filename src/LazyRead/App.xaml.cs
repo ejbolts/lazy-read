@@ -22,7 +22,8 @@ public partial class App : Application
         _instance = new Mutex(true, "Local\\LazyRead.Desktop", out var created);
         if (!created) { MessageBox.Show("Lazy Read is already running. Open it from the system tray.", "Lazy Read"); Shutdown(); return; }
         _reader = new ReaderController();
-        _reader.OpenMain();
+        // Sign-in startup stays in the tray; the window opens from the tray icon.
+        if (!e.Args.Contains("--background")) _reader.OpenMain();
     }
     protected override void OnExit(ExitEventArgs e)
     {
