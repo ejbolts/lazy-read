@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 
 namespace LazyRead;
@@ -21,7 +23,10 @@ public sealed class ReaderController : IDisposable
     private readonly GenerationEstimate _estimate = new();
     private SpeechEngine? _engine;
     private readonly MediaPlayer _audio = new();
-    private readonly Queue<string> _pending = new();
+    private readonly Queue<(string Path, double Seconds)> _pending = new();
+    private readonly DispatcherTimer _bufferTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private int[] _plan = Array.Empty<int>();
+    private int _nextPassage;
     private readonly Forms.NotifyIcon _tray;
     private readonly System.Drawing.Icon _trayIcon;
     private MainWindow? _main;
@@ -35,6 +40,7 @@ public sealed class ReaderController : IDisposable
     {
         _device = DeviceLabel("unloaded");
         _shortcut.Pressed += () => ReadSelection();
+        _bufferTimer.Tick += (_, _) => TryStart();
         _audio.MediaEnded += (_, _) => { RemoveClip(); PlayNext(); UpdateIndicator(); };
         _audio.MediaFailed += async (_, args) => await UnloadVoice(false, "Playback failed", args.ErrorException.Message);
         _audio.MediaOpened += (_, _) => { if (_playing == null || _request == null) return; _audio.SpeedRatio = Settings.Speed; if (!_paused) _audio.Play(); SetState(_paused ? "Paused" : "Reading aloud", _detail); UpdateIndicator(); };
@@ -139,33 +145,55 @@ public sealed class ReaderController : IDisposable
                 _ready = true; _device = message.GetProperty("device").GetString() + " · " + ModelChoice.Find(message.GetProperty("model").GetString()).Name;
                 if (_request == null) SetState("Ready to read", "Highlight text and press " + Settings.Shortcut.Label + "."); else Refresh();
                 break;
+            case "plan": _plan = message.GetProperty("characters").EnumerateArray().Select(part => part.GetInt32()).ToArray(); _nextPassage = 0; break;
             case "generating":
-                _generating = true; _generatingCharacters = message.GetProperty("characters").GetInt32();
+                _generating = true; _nextPassage = message.GetProperty("index").GetInt32(); _generatingCharacters = message.GetProperty("characters").GetInt32();
                 _detail = $"{_source} · {Settings.Voice} · passage {message.GetProperty("index").GetInt32() + 1} of {message.GetProperty("total").GetInt32()}";
-                if (_playing == null) SetState("Generating voice…", _detail); else Refresh();
+                if (_playing == null && _pending.Count == 0) SetState("Generating voice…", _detail); else Refresh();
                 _generationPrediction = _estimate.Predict(_generatingCharacters); _generationClock.Restart(); UpdateIndicator();
                 break;
             case "audio":
-                _generating = false; _estimate.Observe(_generatingCharacters, message.GetProperty("generation_seconds").GetDouble());
+                _generating = false; _nextPassage = message.GetProperty("index").GetInt32() + 1;
+                var seconds = message.GetProperty("seconds").GetDouble();
+                _estimate.Observe(_generatingCharacters, message.GetProperty("generation_seconds").GetDouble()); _estimate.ObserveAudio(_generatingCharacters, seconds);
                 var path = message.GetProperty("path").GetString()!;
                 if (!ValidClip(path)) { FailReading("The engine returned an invalid audio file."); break; }
-                _pending.Enqueue(path); if (_playing == null) PlayNext(); UpdateIndicator(); break;
-            case "done": _generating = false; _done = true; if (_playing == null && _pending.Count == 0) Complete(); else UpdateIndicator(); break;
+                _pending.Enqueue((path, seconds)); if (_playing == null) TryStart(); UpdateIndicator(); break;
+            case "done": _generating = false; _done = true; if (_playing == null && _pending.Count == 0) Complete(); else if (_playing == null) TryStart(); else UpdateIndicator(); break;
             case "error": FailReading(message.GetProperty("message").GetString() ?? "Unknown engine error."); break;
         }
     }
     private bool ValidClip(string path) => _engine != null && Path.GetFullPath(path).StartsWith(Path.GetFullPath(_engine.AudioDirectory) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) && Path.GetExtension(path) == ".wav" && File.Exists(path);
     private void PlayNext()
     {
-        if (_pending.TryDequeue(out var path)) { _playing = path; _audio.Open(new Uri(path)); }
+        if (_pending.TryDequeue(out var clip)) { _bufferTimer.Stop(); _playing = clip.Path; _audio.Open(new Uri(clip.Path)); }
         else if (_done) Complete();
-        else SetState("Generating next passage…", _detail);
+        else { SetState("Buffering for smooth playback…", _detail); _bufferTimer.Start(); }
+    }
+    // Playback starts, or resumes after running dry, only once the rest of the reading is predicted to keep up.
+    private void TryStart()
+    {
+        if (_playing != null || _request == null) { _bufferTimer.Stop(); return; }
+        if (_pending.Count == 0) { if (_done) Complete(); return; }
+        if (_done || BufferDelay() <= 0) { PlayNext(); return; }
+        _bufferTimer.Start(); SetState("Buffering for smooth playback…", _detail); UpdateIndicator();
+    }
+    private double BufferDelay()
+    {
+        var remaining = new List<(double Generate, double Audio)>();
+        for (var i = _nextPassage; i < _plan.Length && !_done; i++)
+        {
+            var generate = _generating && i == _nextPassage ? Math.Max(0.5, _generationPrediction - _generationClock.Elapsed.TotalSeconds) : _estimate.Predict(_plan[i]);
+            remaining.Add((generate, _estimate.PredictAudio(_plan[i])));
+        }
+        return PlaybackBuffer.RequiredDelay(_pending.Sum(clip => clip.Seconds), remaining, Settings.Speed);
     }
     private void UpdateIndicator()
     {
         if (_playing != null || _request == null) _indicator.Clear();
+        else if (_plan.Length > 0 && (_generating || _pending.Count > 0)) _indicator.SetStatus(_pending.Count > 0 ? "Buffering voice" : "Generating voice", BufferDelay());
         else if (_generating) _indicator.SetStatus("Generating voice", Math.Max(0, _generationPrediction - _generationClock.Elapsed.TotalSeconds));
-        else if (!_generating) _indicator.SetStatus("Preparing speech", restartTimer: false);
+        else _indicator.SetStatus("Preparing speech", restartTimer: false);
     }
     public void TogglePause()
     {
@@ -207,9 +235,9 @@ public sealed class ReaderController : IDisposable
     private async void StopPlayback()
     {
         var old = _request; var engine = _engine;
-        _request = null; _done = false; _paused = false; _generating = false;
+        _request = null; _done = false; _paused = false; _generating = false; _plan = Array.Empty<int>(); _nextPassage = 0; _bufferTimer.Stop();
         _indicator.Clear(); _audio.Stop(); _audio.Close(); RemoveClip();
-        while (_pending.TryDequeue(out var path)) DeleteClip(path);
+        while (_pending.TryDequeue(out var clip)) DeleteClip(clip.Path);
         if (old != null) SetState("Stopped", "Ready for your next selection.");
         if (old != null && engine != null) try { await engine.Send(new { action = "cancel", id = old }); } catch { }
     }

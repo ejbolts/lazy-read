@@ -4,7 +4,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from text import chunks
 from worker import Worker
+import worker as worker_module
+import io
+import json
 import tempfile
+from unittest import mock
 
 
 class ReadingTests(unittest.TestCase):
@@ -38,6 +42,16 @@ class ReadingTests(unittest.TestCase):
             self.assertFalse(worker.current[1].is_set(), 'Delayed cancel must not stop a newer reading')
             worker.cancel()
             self.assertTrue(worker.current[1].is_set())
+
+    def test_plan_lists_passage_lengths_before_generation(self):
+        text = 'A sentence for planning. ' * 40
+        output = io.StringIO()
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(worker_module, 'PROTOCOL_OUT', output):
+            Worker(Path(directory), 'test').submit({'id': 'plan', 'text': text})
+        message = json.loads(output.getvalue().splitlines()[0])
+        self.assertEqual(message['type'], 'plan')
+        self.assertEqual(message['id'], 'plan')
+        self.assertEqual(message['characters'], [len(part) for part in chunks(text)])
 
 
 if __name__ == '__main__':

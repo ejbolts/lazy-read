@@ -50,6 +50,8 @@ class Worker:
                 self.current[1].set()
             cancelled = threading.Event()
             self.current = (request_id, cancelled)
+            # Passage lengths let the app buffer enough audio to play the rest without gaps.
+            emit("plan", id=request_id, characters=[len(part) for part in parts])
             self.jobs.put((request, parts, cancelled))
 
     def run(self):

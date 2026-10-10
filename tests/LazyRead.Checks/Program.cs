@@ -31,6 +31,16 @@ Assert(ModelChoice.Options.Length == 2 && Array.Exists(ModelChoice.Options, o =>
 Assert(new ReaderSettings { Model = "Qwen/Unknown" }.Model == ModelChoice.DefaultId, "unknown model setting falls back to 1.7B");
 Assert(System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>("{\"Model\":\"Qwen/Unknown\"}")!.Model == ModelChoice.DefaultId, "unknown saved model falls back to 1.7B");
 Assert(System.Text.Json.JsonSerializer.Deserialize<ReaderSettings>("{\"Voice\":\"Ryan\"}")!.Model == ModelChoice.DefaultId, "settings file without a model keeps working");
+var fresh = new GenerationEstimate(); fresh.Observe(100, 41.5); fresh.ObserveAudio(100, 9);
+Assert(Math.Abs(fresh.Predict(100) - 41.5) < 0.01 && Math.Abs(fresh.PredictAudio(100) - 9) < 0.01, "first measured passage replaces default timing for slower devices");
+var converged = new GenerationEstimate(); for (var i = 0; i < 12; i++) { converged.Observe(100, 11.5); converged.ObserveAudio(100, 6.2); }
+Assert(Math.Abs(converged.Predict(100) - 11.5) < 0.1 && Math.Abs(converged.PredictAudio(100) - 6.2) < 0.05, "estimates converge on observed generation and speech length");
+Assert(PlaybackBuffer.RequiredDelay(12, Array.Empty<(double, double)>(), 1) == 0, "fully generated reading plays immediately");
+Assert(PlaybackBuffer.RequiredDelay(10, new[] { (2.0, 10.0), (2.0, 10.0) }, 1) == 0, "generation faster than speech needs no extra wait");
+var slow = new[] { (19.0, 10.0), (19.0, 10.0), (19.0, 10.0), (19.0, 10.0) };
+var wait = PlaybackBuffer.RequiredDelay(10, slow, 1);
+Assert(Enumerable.Range(1, slow.Length).All(j => 19.0 * j <= wait + 10.0 * j) && wait < 60, "slow generation waits just enough for gapless playback");
+Assert(PlaybackBuffer.RequiredDelay(10, slow, 1.5) > wait, "faster playback speed buffers longer");
 var screen = new System.Drawing.Rectangle(0, 0, 1920, 1040);
 Assert(CursorIndicator.Place(800, 500, 260, 52, screen) == (532, 522), "badge sits below and left of the cursor");
 Assert(CursorIndicator.Place(100, 500, 260, 52, screen) == (122, 522), "badge flips right at the left screen edge");
