@@ -15,9 +15,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent(); _reader = reader;
         SpeedBox.ItemsSource = new[] { "0.8×", "1.0×", "1.25×", "1.5×" };
-        ModelBox.ItemsSource = Array.ConvertAll(ModelChoice.Options, option => option.Label);
-        ModelBox.SelectedIndex = Array.FindIndex(ModelChoice.Options, option => option.Id == reader.Settings.Model);
-        ShowModelChoices(ModelChoice.Find(reader.Settings.Model));
+        VoiceBox.ItemsSource = VoiceChoice.Options;
+        VoiceBox.SelectedItem = reader.Settings.Voice;
         SpeedBox.SelectedIndex = Array.IndexOf(new[] { 0.8, 1.0, 1.25, 1.5 }, reader.Settings.Speed);
         if (SpeedBox.SelectedIndex < 0) SpeedBox.SelectedIndex = 1;
         EnabledBox.IsChecked = reader.Settings.Enabled;
@@ -56,26 +55,12 @@ public partial class MainWindow : Window
         if (!success) ShortcutHint.Text = error;
     }
     private void EnableChanged(object sender, RoutedEventArgs args) { if (_initialized) _reader.SetEnabled(EnabledBox.IsChecked == true); }
-    private void ShowModelChoices(ModelOption model)
-    {
-        VoiceBox.ItemsSource = model.Voices; VoiceBox.SelectedItem = _reader.Settings.VoiceFor(model);
-        LanguageBox.ItemsSource = model.Languages; LanguageBox.SelectedItem = ModelChoice.PickLanguage(model, _reader.Settings.Language);
-        LanguageBox.IsEnabled = model.Languages.Length > 1;
-    }
     private void OptionsChanged(object sender, SelectionChangedEventArgs args)
     {
         if (!_initialized) return;
-        if (sender == ModelBox)
-        {
-            _reader.Settings.ModelVoices[_reader.Settings.Model] = _reader.Settings.Voice;
-            _initialized = false; ShowModelChoices(ModelChoice.Options[ModelBox.SelectedIndex]); _initialized = true;
-        }
         _reader.Settings.Voice = (string)VoiceBox.SelectedItem;
-        _reader.Settings.Language = (string)LanguageBox.SelectedItem;
         _reader.Settings.Speed = new[] { 0.8, 1.0, 1.25, 1.5 }[SpeedBox.SelectedIndex];
-        _reader.Settings.Model = ModelChoice.Options[ModelBox.SelectedIndex].Id;
-        _reader.Settings.ModelVoices[_reader.Settings.Model] = _reader.Settings.Voice;
-        _reader.Settings.Save(); _reader.UpdateSpeed(); _reader.UpdateModel();
+        _reader.Settings.Save(); _reader.UpdateSpeed();
     }
     private void SpeakClick(object sender, RoutedEventArgs args) => _reader.Speak(SampleText.SelectionLength > 0 ? SampleText.SelectedText : SampleText.Text, "Test reading");
     private void StopClick(object sender, RoutedEventArgs args) => _reader.Stop();

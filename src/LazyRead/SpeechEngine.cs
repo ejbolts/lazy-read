@@ -14,9 +14,7 @@ public sealed class SpeechEngine : IDisposable
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private bool _disposed;
     public string AudioDirectory { get; } = Path.Combine(ReaderSettings.DirectoryPath, "audio", Guid.NewGuid().ToString("N"));
-    public string Model { get; }
     public event Action<JsonElement>? Message;
-    public SpeechEngine(string model) => Model = model;
     public static string FindRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -37,7 +35,6 @@ public sealed class SpeechEngine : IDisposable
         var info = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, WorkingDirectory = root };
         info.ArgumentList.Add("-u"); info.ArgumentList.Add(Path.Combine(root, "engine", "worker.py"));
         info.ArgumentList.Add("--audio-dir"); info.ArgumentList.Add(AudioDirectory);
-        info.ArgumentList.Add("--model"); info.ArgumentList.Add(Model);
         info.Environment["PYTHONUTF8"] = "1";
         info.Environment["HF_HUB_DISABLE_TELEMETRY"] = "1";
         _process = new Process { StartInfo = info, EnableRaisingEvents = true };

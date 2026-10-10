@@ -20,9 +20,8 @@ public sealed class ReaderController : IDisposable
     private readonly GlobalHotkey _shortcut = new();
     private readonly SelectionReader _selection = new();
     private readonly CursorIndicator _indicator = new();
-    private GenerationEstimate _estimate = new();
+    private readonly GenerationEstimate _estimate = new();
     private SpeechEngine? _engine;
-    private string? _estimateModel;
     private readonly MediaPlayer _audio = new();
     private readonly Queue<(string Path, double Seconds)> _pending = new();
     private readonly DispatcherTimer _bufferTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
@@ -87,11 +86,9 @@ public sealed class ReaderController : IDisposable
     private void StartEngine()
     {
         StopPlayback(); _ready = false; _engine?.Dispose();
-        // Generation speed learned for one model does not describe another.
-        if (Settings.Model != _estimateModel) { _estimate = new(); _estimateModel = Settings.Model; }
-        var engine = new SpeechEngine(Settings.Model); _engine = engine;
+        var engine = new SpeechEngine(); _engine = engine;
         engine.Message += message => Application.Current.Dispatcher.BeginInvoke(() => { if (ReferenceEquals(engine, _engine)) HandleMessage(message); });
-        SetState($"Loading {ModelChoice.Find(engine.Model).Name}…", "The first launch downloads the model. Later launches use the local cache.");
+        SetState($"Loading {VoiceChoice.Engine}…", "The first launch downloads the model. Later launches use the local cache.");
         try { engine.Start(); } catch (Exception e) { SetState("Engine failed to start", e.Message); }
     }
     private async void ReadSelection()
@@ -124,15 +121,14 @@ public sealed class ReaderController : IDisposable
         if (_unloading) return;
         try { text = ReadingRules.Validate(text); } catch (Exception e) { SetState("Choose some text", e.Message); return; }
         StopPlayback();
-        if (_engine == null || _engine.Model != Settings.Model) StartEngine();
+        if (_engine == null) StartEngine();
         _request = Guid.NewGuid().ToString("N"); _source = source;
         SetState(_ready ? "Generating voice…" : "Waiting for the local voice…", $"{source} · {Settings.Voice} · {text.Length:N0} characters");
         _indicator.SetStatus(_ready ? "Preparing speech" : "Loading voice");
         try
         {
             if (_engine == null) throw new InvalidOperationException("Open settings and start the local engine first.");
-            var model = ModelChoice.Find(_engine.Model);
-            await _engine.Send(new { action = "speak", id = _request, text, voice = Settings.VoiceFor(model), language = ModelChoice.PickLanguage(model, Settings.Language) });
+            await _engine.Send(new { action = "speak", id = _request, text, voice = Settings.Voice });
         }
         catch (Exception e) { await UnloadVoice(false, "Reading failed", e.Message); }
     }
@@ -144,9 +140,9 @@ public sealed class ReaderController : IDisposable
         { if (type == "audio" && message.TryGetProperty("path", out var stale)) DeleteClip(stale.GetString()); return; }
         switch (type)
         {
-            case "loading": SetState($"Loading {ModelChoice.Find(_engine?.Model).Name}…", message.GetProperty("message").GetString() ?? ""); break;
+            case "loading": SetState($"Loading {VoiceChoice.Engine}…", message.GetProperty("message").GetString() ?? ""); break;
             case "ready":
-                _ready = true; _device = message.GetProperty("device").GetString() + " · " + ModelChoice.Find(message.GetProperty("model").GetString()).Name;
+                _ready = true; _device = message.GetProperty("device").GetString() + " · " + VoiceChoice.Engine;
                 if (_request == null) SetState("Ready to read", "Highlight text and press " + Settings.Shortcut.Label + "."); else Refresh();
                 break;
             case "plan": _plan = message.GetProperty("characters").EnumerateArray().Select(part => part.GetInt32()).ToArray(); _nextPassage = 0; break;
@@ -206,9 +202,7 @@ public sealed class ReaderController : IDisposable
         SetState(_paused ? "Paused" : "Reading aloud", _detail); UpdateIndicator();
     }
     public void UpdateSpeed() => _audio.SpeedRatio = Settings.Speed;
-    // A loaded engine keeps its model until it unloads; the new choice applies from the next reading.
-    public void UpdateModel() { if (!_unloading && _engine == null && _request == null) { _device = DeviceLabel("unloaded"); Refresh(); } }
-    private string DeviceLabel(string state) => ModelChoice.Find(Settings.Model).Name + " · model " + state;
+    private static string DeviceLabel(string state) => VoiceChoice.Engine + " · model " + state;
     public async void Stop() => await UnloadVoice(true);
     private async void FailReading(string message) => await UnloadVoice(false, "Reading failed", message);
     private async Task UnloadVoice(bool cancelled, string? finalStatus = null, string? finalDetail = null)

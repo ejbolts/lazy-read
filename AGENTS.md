@@ -1,6 +1,6 @@
 # Lazy Read
 
-Standalone Windows WPF application with an isolated Python Qwen3-TTS worker.
+Standalone Windows WPF application with an isolated Python Kokoro (kokoro-onnx) worker.
 
 - Build: `dotnet build src/LazyRead/LazyRead.csproj -c Release`
 - Checks: `dotnet run --project tests/LazyRead.Checks -c Release` and `.venv/Scripts/python.exe -m unittest discover -s engine/tests`

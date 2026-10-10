@@ -29,7 +29,7 @@ class ReadingTests(unittest.TestCase):
 
     def test_new_reading_cancels_previous_and_empty_does_not(self):
         with tempfile.TemporaryDirectory() as directory:
-            worker = Worker(Path(directory), 'test')
+            worker = Worker(Path(directory))
             worker.submit({'id': 'first', 'text': 'First reading.'})
             first = worker.current[1]
             with self.assertRaises(ValueError):
@@ -47,7 +47,7 @@ class ReadingTests(unittest.TestCase):
         text = 'A sentence for planning. ' * 40
         output = io.StringIO()
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(worker_module, 'PROTOCOL_OUT', output):
-            Worker(Path(directory), 'test').submit({'id': 'plan', 'text': text})
+            Worker(Path(directory)).submit({'id': 'plan', 'text': text})
         message = json.loads(output.getvalue().splitlines()[0])
         self.assertEqual(message['type'], 'plan')
         self.assertEqual(message['id'], 'plan')

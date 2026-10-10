@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 
-import backends
+import speech
 from text import chunks
 
 PROTOCOL_OUT = sys.stdout
@@ -24,15 +24,14 @@ def emit(event: str, **payload):
 
 
 class Worker:
-    def __init__(self, audio_dir: Path, model_id: str):
+    def __init__(self, audio_dir: Path):
         self.audio_dir = audio_dir
-        self.model_id = model_id
         self.jobs = queue.Queue()
         self.lock = threading.Lock()
         self.current = None
         self.closed = threading.Event()
         self.ready = threading.Event()
-        self.backend = backends.create(model_id)
+        self.speech = speech.Speech()
         self.failed = False
 
     def cancel(self, request_id=None):
@@ -57,15 +56,15 @@ class Worker:
 
     def run(self):
         try:
-            emit("loading", message=f"Loading {self.backend.name}. The first launch downloads the model.")
+            emit("loading", message=f"Loading {speech.NAME}. The first launch downloads the model.")
             # All package output is redirected so the parent receives JSON only.
             with contextlib.redirect_stdout(sys.stderr):
-                device = self.backend.load(lambda message: emit("loading", message=message))
-            emit("ready", device=device, model=self.model_id)
+                device = self.speech.load(lambda message: emit("loading", message=message))
+            emit("ready", device=device)
             self.ready.set()
         except Exception as error:
             self.failed = True
-            emit("error", message=f"Could not load {self.backend.name}: {type(error).__name__}: {error}")
+            emit("error", message=f"Could not load {speech.NAME}: {type(error).__name__}: {error}")
             return
 
         import soundfile as sf
@@ -85,7 +84,7 @@ class Worker:
                     emit("generating", id=request_id, index=index, total=len(parts), characters=len(part))
                     started = time.monotonic()
                     with contextlib.redirect_stdout(sys.stderr):
-                        samples, sample_rate = self.backend.synthesize(part, request, cancelled)
+                        samples, sample_rate = self.speech.synthesize(part, request.get("voice", speech.DEFAULT_VOICE))
                     if cancelled.is_set():
                         break
                     # Files are named independently of user text and request identifiers.
@@ -107,7 +106,6 @@ class Worker:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--audio-dir", type=Path, required=True)
-    parser.add_argument("--model", default="Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
     args = parser.parse_args()
     if os.environ.get('LAZY_READ_DEBUG_LOAD') == '1':
         import faulthandler
@@ -115,14 +113,14 @@ def main():
     args.audio_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
     emit("loading", message="Starting the local speech libraries…")
-    worker = Worker(args.audio_dir, args.model)
     try:
-        backends.preload(worker.backend)
+        speech.preload()
         if os.environ.get('LAZY_READ_DEBUG_LOAD') == '1':
             faulthandler.cancel_dump_traceback_later()
     except Exception as error:
         emit("error", message=f"Speech library initialization failed: {type(error).__name__}: {error}")
         return
+    worker = Worker(args.audio_dir)
     thread = threading.Thread(target=worker.run, daemon=True)
     thread.start()
     try:

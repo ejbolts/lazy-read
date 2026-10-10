@@ -1,4 +1,3 @@
-param([switch]$Cpu)
 $ErrorActionPreference = 'Stop'
 $project = $PSScriptRoot
 Set-Location -LiteralPath $project
@@ -15,15 +14,9 @@ if (-not (Test-Path -LiteralPath '.venv/Scripts/python.exe')) {
     Checked 'py' @('-3.10', '-m', 'venv', '.venv')
 }
 $python = Join-Path $project '.venv/Scripts/python.exe'
-if (-not $Cpu -and -not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
-    Write-Host 'No NVIDIA driver found; installing CPU inference.'
-    $Cpu = $true
-}
-$wheelIndex = if ($Cpu) { 'https://download.pytorch.org/whl/cpu' } else { 'https://download.pytorch.org/whl/cu128' }
 Write-Host 'Installing the local speech engine. No administrator access is needed.'
-Checked $python @('-m', 'pip', 'install', 'torch==2.9.1', 'torchaudio==2.9.1', '--index-url', $wheelIndex)
 Checked $python @('-m', 'pip', 'install', '-r', 'engine/requirements.txt')
 if ($fromSource) {
     Checked 'dotnet' @('publish', 'src/LazyRead/LazyRead.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-o', 'app')
 }
-Write-Host 'Ready. Double-click Start Lazy Read.cmd. The first launch downloads the Qwen3 model; subsequent launches use its cache.'
+Write-Host 'Ready. Double-click Start Lazy Read.cmd. The first reading downloads the Kokoro model (about 350 MB); later readings use the local copy.'

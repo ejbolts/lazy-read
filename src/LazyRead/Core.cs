@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -27,39 +26,19 @@ public static class ReadingRules
     }
 }
 
-public sealed record ModelOption(string Id, string Label, string Name, string[] Voices, string[] Languages);
-
-public static class ModelChoice
+public static class VoiceChoice
 {
-    public const string DefaultId = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice";
-    public const string KokoroId = "kokoro-onnx/kokoro-v1.0";
-    public const string PocketId = "kyutai/pocket-tts";
-    private static readonly string[] QwenVoices = { "Ryan", "Aiden", "Vivian", "Serena", "Uncle_Fu", "Dylan", "Eric", "Ono_Anna", "Sohee" };
-    private static readonly string[] QwenLanguages = { "Auto", "English", "Chinese", "Japanese", "Korean", "German", "French", "Russian", "Portuguese", "Spanish", "Italian" };
-    private static readonly string[] English = { "English" };
-    public static readonly ModelOption[] Options =
-    {
-        new(DefaultId, "Qwen3-TTS 1.7B (best quality)", "Qwen3-TTS 1.7B", QwenVoices, QwenLanguages),
-        new("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", "Qwen3-TTS 0.6B (faster, lighter)", "Qwen3-TTS 0.6B", QwenVoices, QwenLanguages),
-        // Kokoro voice prefixes: af/am American female/male, bf/bm British female/male.
-        new(KokoroId, "Kokoro v1.0 (test, CPU)", "Kokoro v1.0", new[] { "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "am_michael", "am_fenrir", "am_puck", "am_adam", "bf_emma", "bf_isabella", "bm_george", "bm_fable", "bm_lewis" }, English),
-        new(PocketId, "Pocket TTS (test, CPU)", "Pocket TTS", new[] { "alba", "marius", "javert", "jean", "cosette", "anna", "vera", "fantine", "charles", "paul", "eponine", "azelma", "george", "mary", "jane", "michael", "eve" }, English),
-    };
-    public static ModelOption Find(string? id) => Array.Find(Options, option => option.Id == id) ?? Options[0];
-    // Voices and languages belong to a model; switching models falls back to its first voice and to English.
-    public static string PickVoice(ModelOption model, string? voice) => Array.IndexOf(model.Voices, voice) >= 0 ? voice! : model.Voices[0];
-    public static string PickLanguage(ModelOption model, string? language) => Array.IndexOf(model.Languages, language) >= 0 ? language! : "English";
+    public const string Engine = "Kokoro v1.0";
+    // Kokoro voice prefixes: af/am American female/male, bf/bm British female/male.
+    public static readonly string[] Options = { "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "am_michael", "am_fenrir", "am_puck", "am_adam", "bf_emma", "bf_isabella", "bm_george", "bm_fable", "bm_lewis" };
+    public static string Pick(string? voice) => Array.IndexOf(Options, voice) >= 0 ? voice! : Options[0];
 }
 
 public sealed class ReaderSettings
 {
-    private string _model = ModelChoice.DefaultId;
-    public string Voice { get; set; } = "Ryan";
-    public string Language { get; set; } = "English";
-    public string Model { get => ModelChoice.Find(_model).Id; set => _model = value; }
-    // Each model's last voice, so comparing models does not lose the voice chosen for another.
-    public Dictionary<string, string> ModelVoices { get; set; } = new();
-    public string VoiceFor(ModelOption model) => ModelChoice.PickVoice(model, ModelVoices.GetValueOrDefault(model.Id, Voice));
+    private string _voice = VoiceChoice.Options[0];
+    // Voices saved for earlier models fall back to Kokoro's default voice.
+    public string Voice { get => VoiceChoice.Pick(_voice); set => _voice = value; }
     public double Speed { get; set; } = 1.0;
     public bool Enabled { get; set; } = true;
     public uint ShortcutKey { get; set; } = 0x77;

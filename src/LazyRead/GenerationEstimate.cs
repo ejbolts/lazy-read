@@ -5,16 +5,16 @@ namespace LazyRead;
 
 public sealed class GenerationEstimate
 {
-    private const double Overhead = 1.5;
-    // Defaults approximate a recent NVIDIA GPU; the first measured passage replaces them.
-    private double _secondsPerCharacter = 0.11, _audioPerCharacter = 0.06;
+    private const double Overhead = 0.3;
+    // Defaults approximate Kokoro on a desktop CPU, with headroom for laptops; the first measured passage replaces them.
+    private double _secondsPerCharacter = 0.015, _audioPerCharacter = 0.064;
     private bool _measured, _measuredAudio;
-    public double Predict(int characters) => Math.Clamp(Overhead + Math.Max(1, characters) * _secondsPerCharacter, 2, 180);
+    public double Predict(int characters) => Math.Clamp(Overhead + Math.Max(1, characters) * _secondsPerCharacter, 1, 180);
     public double PredictAudio(int characters) => Math.Max(1, characters) * _audioPerCharacter;
     public void Observe(int characters, double seconds)
     {
         if (characters <= 0 || !double.IsFinite(seconds) || seconds <= 0) return;
-        var sample = Math.Clamp((seconds - Overhead) / characters, 0.01, 5);
+        var sample = Math.Clamp((seconds - Overhead) / characters, 0.002, 5);
         _secondsPerCharacter = _measured ? 0.6 * _secondsPerCharacter + 0.4 * sample : sample;
         _measured = true;
     }

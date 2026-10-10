@@ -15,7 +15,7 @@ import wave
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--offline', action='store_true', help='Require cached model files; disable Hub networking.')
+    parser.add_argument('--offline', action='store_true', help='Require cached model files; disable networking.')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     evidence = root / 'artifacts' / 'visual-review' / 'initial-app' / ('offline' if args.offline else 'engine')
@@ -81,20 +81,20 @@ def main():
             wait('error', 'invalid')
             report['checks'].append('Empty input rejected without terminating the engine')
             send({'action': 'speak', 'id': 'sample', 'text': 'Lazy Read is ready. Your selected text stays on this computer.',
-                  'voice': 'Ryan', 'language': 'English'})
+                  'voice': 'af_heart'})
             check_audio(wait('audio', 'sample'))
             wait('done', 'sample')
             if not args.offline:
                 send({'action': 'speak', 'id': 'old', 'text': 'This reading will be cancelled. ' * 15})
                 wait('generating', 'old')
                 send({'action': 'cancel', 'id': 'old'})
-                send({'action': 'speak', 'id': 'new', 'text': 'The next selection works. Unicode: café.', 'voice': 'Ryan', 'language': 'English'})
+                send({'action': 'speak', 'id': 'new', 'text': 'The next selection works. Unicode: café.', 'voice': 'af_heart'})
                 send({'action': 'cancel', 'id': 'old'})
                 check_audio(wait('audio', 'new'))
                 wait('done', 'new')
                 report['checks'].append('Cancellation and replacement; delayed cancel cannot stop newer text')
             (evidence / 'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
-            print('PASS: real local Qwen3-TTS integration', flush=True)
+            print('PASS: real local Kokoro integration', flush=True)
         finally:
             if process.poll() is None:
                 send({'action': 'shutdown'})
